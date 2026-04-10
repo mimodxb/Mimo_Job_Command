@@ -10,7 +10,9 @@ export default function ContentAI() {
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState('warm');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingHook, setIsGeneratingHook] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
+  const [generatedHooks, setGeneratedHooks] = useState<string[]>([]);
 
   const handleGenerate = async () => {
     if (!topic) return;
@@ -31,7 +33,9 @@ export default function ContentAI() {
         warm: 'warm, human, conversational',
         direct: 'direct, punchy, confident',
         reflective: 'reflective, thoughtful, vulnerable',
-        professional: 'professional, insightful, authoritative'
+        professional: 'professional, insightful, authoritative',
+        humorous: 'humorous, witty, slightly self-deprecating but professional',
+        inspirational: 'inspirational, motivating, visionary'
       };
 
       const prompt = `You are writing a LinkedIn post for Movsum Mirzazada (Mimo), a Dubai-based customer operations and sales professional with 6+ years in UAE premium retail and hospitality. He is also an internationally recognized actor (Cannes Film Festival selection 2019, Best Male Actor at Moscow International Russian Film Festival 2019 for "End of Season" for the film "End of Season"). He founded Mimo's Collective. He speaks Azerbaijani, English, Turkish, Russian.
@@ -62,6 +66,52 @@ Output only the post text, nothing else.`;
       setGeneratedPost("Error generating post. Please try again.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateHooks = async () => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      alert("GEMINI_API_KEY not found.");
+      return;
+    }
+
+    setIsGeneratingHook(true);
+    setGeneratedHooks([]);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are a viral LinkedIn content strategist. Generate 5 high-engagement "hooks" for Movsum Mirzazada (Mimo).
+      
+      User Profile:
+      - Name: Movsum Mirzazada (Mimo)
+      - Background: Customer Operations, Retail Ops, Actor, Founder of Mimo's Collective.
+      - Achievements: 28% sales growth, Cannes selection, AI automation expert.
+
+      Goal: Create hooks that stop the scroll. Use techniques like:
+      - The "Contrarian" hook (e.g., "Why I stopped using CRM...")
+      - The "Metric" hook (e.g., "How we hit 28% growth in 30 days...")
+      - The "Vulnerable" hook (e.g., "The biggest mistake I made in retail...")
+      - The "Visionary" hook (e.g., "The future of Dubai retail is AI, but not how you think...")
+
+      Provide a JSON response with:
+      1. hooks: An array of 5 strings.
+
+      Output ONLY valid JSON.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-preview",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      setGeneratedHooks(result.hooks || []);
+    } catch (error) {
+      console.error(error);
+      alert("Error generating hooks.");
+    } finally {
+      setIsGeneratingHook(false);
     }
   };
 
@@ -133,7 +183,7 @@ Output only the post text, nothing else.`;
                 <div>
                   <label className="block text-[11px] font-bold text-text-3 uppercase mb-1.5 ml-1">Tone</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {['warm', 'direct', 'reflective', 'professional'].map(t => (
+                    {['warm', 'direct', 'reflective', 'professional', 'humorous', 'inspirational'].map(t => (
                       <button
                         key={t}
                         onClick={() => setTone(t as any)}
@@ -262,32 +312,71 @@ Output only the post text, nothing else.`;
       )}
 
       {activeTab === 'hooks' && (
-        <div className="card">
-          <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase mb-4">Proven LinkedIn Hook Templates</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              { pattern: "Pattern 1", hook: "I didn't expect [outcome] when I [action]." },
-              { pattern: "Pattern 2", hook: "Most [professionals] lose [thing] not during [stage A] — but [stage B]." },
-              { pattern: "Pattern 3", hook: "[Number] years ago, I [did something unexpected]. Here's what it taught me." },
-              { pattern: "Pattern 4", hook: "The most underestimated [skill] in UAE [industry] isn't [obvious thing]." },
-              { pattern: "Pattern 5", hook: "I started [project] because I kept [problem]. Here's where it led." },
-              { pattern: "Pattern 6", hook: "Working in [context] in four languages isn't [misconception]. It's [real value]." },
-              { pattern: "Pattern 7", hook: "[City] taught me something that [other city] never could." },
-              { pattern: "Pattern 8", hook: "The day I [pivotal moment] changed how I think about [professional topic]." }
-            ].map((h, i) => (
-              <div key={i} className="flex items-center justify-between p-4 bg-bg border border-border rounded-lg group hover:border-accent transition-all">
-                <div>
-                  <div className="text-[13px] text-text italic mb-1">"{h.hook}"</div>
-                  <div className="text-[10.5px] text-text-4 font-bold uppercase tracking-wider">{h.pattern}</div>
+        <div className="space-y-6">
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase">AI Smart Hooks</div>
+              <button 
+                onClick={handleGenerateHooks}
+                disabled={isGeneratingHook}
+                className="btn btn-ghost btn-xs gap-2 text-accent font-bold"
+              >
+                {isGeneratingHook ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                Generate Fresh Hooks
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {generatedHooks.length > 0 ? (
+                generatedHooks.map((hook, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-bg border border-border rounded-lg group hover:border-accent transition-all">
+                    <div className="flex-1 mr-4">
+                      <div className="text-[13px] text-text italic mb-1">"{hook}"</div>
+                      <div className="text-[10.5px] text-text-4 font-bold uppercase tracking-wider">AI Generated</div>
+                    </div>
+                    <button 
+                      onClick={() => { setTopic(hook); setActiveTab('generator'); }}
+                      className="btn btn-ghost btn-sm px-2"
+                    >
+                      Use
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full p-8 text-center border-dashed border-2 border-border rounded-xl opacity-50">
+                  <p className="text-[13px] text-text-3">Click "Generate Fresh Hooks" to get AI-powered scroll-stoppers tailored to your profile.</p>
                 </div>
-                <button 
-                  onClick={() => { setTopic(h.hook); setActiveTab('generator'); }}
-                  className="btn btn-ghost btn-sm px-2"
-                >
-                  Use
-                </button>
-              </div>
-            ))}
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase mb-4">Proven LinkedIn Hook Templates</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { pattern: "Pattern 1", hook: "I didn't expect [outcome] when I [action]." },
+                { pattern: "Pattern 2", hook: "Most [professionals] lose [thing] not during [stage A] — but [stage B]." },
+                { pattern: "Pattern 3", hook: "[Number] years ago, I [did something unexpected]. Here's what it taught me." },
+                { pattern: "Pattern 4", hook: "The most underestimated [skill] in UAE [industry] isn't [obvious thing]." },
+                { pattern: "Pattern 5", hook: "I started [project] because I kept [problem]. Here's where it led." },
+                { pattern: "Pattern 6", hook: "Working in [context] in four languages isn't [misconception]. It's [real value]." },
+                { pattern: "Pattern 7", hook: "[City] taught me something that [other city] never could." },
+                { pattern: "Pattern 8", hook: "The day I [pivotal moment] changed how I think about [professional topic]." }
+              ].map((h, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-bg border border-border rounded-lg group hover:border-accent transition-all">
+                  <div>
+                    <div className="text-[13px] text-text italic mb-1">"{h.hook}"</div>
+                    <div className="text-[10.5px] text-text-4 font-bold uppercase tracking-wider">{h.pattern}</div>
+                  </div>
+                  <button 
+                    onClick={() => { setTopic(h.hook); setActiveTab('generator'); }}
+                    className="btn btn-ghost btn-sm px-2"
+                  >
+                    Use
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

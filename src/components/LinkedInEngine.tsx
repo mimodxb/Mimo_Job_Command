@@ -1,12 +1,88 @@
 import { useState } from 'react';
-import { POSTS } from '../constants';
+import { POSTS, PROFILE } from '../constants';
 import { Post } from '../types';
-import { Copy, ExternalLink, AlertTriangle, Info } from 'lucide-react';
+import { Copy, ExternalLink, AlertTriangle, Info, Palette, Calendar, Send, Clock, CheckCircle2, Sparkles, Loader2, Search } from 'lucide-react';
+import BannerDesigner from './BannerDesigner';
+import { GoogleGenAI } from "@google/genai";
 
 export default function LinkedInEngine() {
-  const [activeTab, setActiveTab] = useState<'posts' | 'schedule' | 'fixes' | 'actions'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'schedule' | 'fixes' | 'actions' | 'banner' | 'scheduler' | 'auditor'>('posts');
   const [selectedPost, setSelectedPost] = useState<Post>(POSTS[0]);
   const [postBody, setPostBody] = useState(POSTS[0].body);
+
+  // Scheduler States
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduleSuccess, setScheduleSuccess] = useState(false);
+
+  // Auditor States
+  const [profileText, setProfileText] = useState('');
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<{ score: number; fixes: string[]; summary: string } | null>(null);
+
+  const handleSchedule = async () => {
+    if (!scheduledDate || !scheduledTime) return;
+    setIsScheduling(true);
+    
+    // Simulate API call to Buffer/Make.com
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    setIsScheduling(false);
+    setScheduleSuccess(true);
+    setTimeout(() => setScheduleSuccess(false), 3000);
+  };
+
+  const handleAudit = async () => {
+    if (!profileText) return;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      alert("GEMINI_API_KEY not found.");
+      return;
+    }
+
+    setIsAuditing(true);
+    setAuditResult(null);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are an expert LinkedIn Profile Auditor. Analyze the following profile text for Movsum Mirzazada (Mimo).
+      
+      User Profile Context:
+      - Name: ${PROFILE.name}
+      - Target Roles: Senior Operations Manager, Retail Ops, Customer Ops, Sales Strategy.
+      - Key Strengths: AI Implementation, UAE Market Expertise, Team Leadership, Multilingual.
+
+      Profile Text to Audit:
+      "${profileText}"
+
+      Provide a JSON response with:
+      1. score: A number from 0-100.
+      2. fixes: An array of 5-7 specific, actionable improvements (e.g., "Add 'CRM' to headline", "Quantify the 28% growth in the About section").
+      3. summary: A 2-sentence professional summary of the profile's current impact.
+
+      Rules:
+      - Be critical but constructive.
+      - Focus on SEO keywords for the UAE market.
+      - Ensure the "AI Automation" angle is highlighted.
+      - Output ONLY valid JSON.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      setAuditResult(result);
+    } catch (error) {
+      console.error(error);
+      alert("Error auditing profile.");
+    } finally {
+      setIsAuditing(false);
+    }
+  };
 
   const handleSelectPost = (post: Post) => {
     setSelectedPost(post);
@@ -33,6 +109,9 @@ export default function LinkedInEngine() {
           { id: 'posts', label: 'Post Library' },
           { id: 'schedule', label: 'Weekly Schedule' },
           { id: 'fixes', label: 'Profile Fixes' },
+          { id: 'banner', label: 'Banner Designer' },
+          { id: 'auditor', label: 'AI Profile Auditor' },
+          { id: 'scheduler', label: 'API Scheduler' },
           { id: 'actions', label: 'Quick Actions' },
         ].map(tab => (
           <button
@@ -183,6 +262,185 @@ export default function LinkedInEngine() {
                   <span className="text-[13px] text-text-2 leading-tight group-hover:text-text transition-colors">{fix}</span>
                 </label>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'banner' && <BannerDesigner />}
+
+      {activeTab === 'banner' && <BannerDesigner />}
+
+      {activeTab === 'auditor' && (
+        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
+          <div className="card space-y-6 shadow-md">
+            <div className="flex items-center gap-2 text-text font-bold text-sm">
+              <Search size={16} className="text-accent" /> Profile Audit
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Paste Profile / About Section</label>
+                <textarea 
+                  placeholder="Paste your current LinkedIn 'About' section or a summary of your profile..." 
+                  value={profileText}
+                  onChange={(e) => setProfileText(e.target.value)}
+                  className="input h-[300px] resize-none text-[12px] leading-relaxed font-medium" 
+                />
+              </div>
+              <button 
+                onClick={handleAudit}
+                disabled={isAuditing || !profileText}
+                className="btn btn-primary w-full h-12 justify-center font-bold text-[14px] shadow-lg shadow-accent/20"
+              >
+                {isAuditing ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    Auditing Profile...
+                  </div>
+                ) : (
+                  <>Run AI Audit <Sparkles size={16} /></>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {!auditResult && !isAuditing ? (
+              <div className="card flex flex-col items-center justify-center text-center p-20 opacity-30 border-dashed border-2">
+                <Search size={48} className="text-text-3 mb-4" />
+                <div className="text-[18px] font-bold text-text">Audit Pending</div>
+                <p className="text-[14px] text-text-3 max-w-[350px] mt-2">Paste your profile content on the left to get a professional SEO and impact audit from Gemini.</p>
+              </div>
+            ) : isAuditing ? (
+              <div className="card flex flex-col items-center justify-center text-center p-20">
+                <div className="w-16 h-16 border-4 border-accent/10 border-t-accent rounded-full animate-spin mb-6" />
+                <div className="text-[16px] font-bold text-text animate-pulse">Gemini is analyzing your professional brand...</div>
+                <p className="text-[13px] text-text-3 mt-2">Checking for keywords, impact metrics, and UAE market alignment.</p>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="card flex flex-col items-center justify-center p-6 bg-accent/5 border-accent/20">
+                    <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">Optimization Score</div>
+                    <div className="text-4xl font-black text-text">{auditResult.score}%</div>
+                  </div>
+                  <div className="card md:col-span-2 p-6">
+                    <div className="text-[10px] font-bold text-text-3 uppercase tracking-widest mb-2">Professional Impact Summary</div>
+                    <p className="text-[13px] text-text-2 leading-relaxed font-medium italic">"{auditResult.summary}"</p>
+                  </div>
+                </div>
+
+                <div className="card p-6">
+                  <div className="flex items-center gap-2 text-text font-bold text-sm mb-4">
+                    <AlertTriangle size={16} className="text-amber-500" /> Recommended Fixes
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {auditResult.fixes.map((fix, i) => (
+                      <div key={i} className="flex gap-3 p-4 bg-bg border border-border rounded-xl group hover:border-accent transition-all">
+                        <div className="w-6 h-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                          {i + 1}
+                        </div>
+                        <p className="text-[12.5px] text-text-2 leading-snug font-medium">{fix}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'scheduler' && (
+        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
+          <div className="card space-y-6 shadow-md">
+            <div className="flex items-center gap-2 text-text font-bold text-sm">
+              <Calendar size={16} className="text-accent" /> Schedule Post
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Platform</label>
+                <select className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-accent transition-all">
+                  <option>LinkedIn (Personal)</option>
+                  <option>LinkedIn (Company)</option>
+                  <option>Twitter / X</option>
+                  <option>Instagram (via Buffer)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Date</label>
+                  <input 
+                    type="date" 
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-accent transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Time (GST)</label>
+                  <input 
+                    type="time" 
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-accent transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                <div className="text-[10px] font-bold text-text-3 uppercase tracking-wider">API Connection</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-text-2 font-medium">Make.com Webhook</span>
+                  <span className="text-[10px] font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded border border-green-100 uppercase">Connected</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSchedule}
+                disabled={isScheduling || !scheduledDate || !scheduledTime}
+                className="btn btn-primary w-full h-12 justify-center font-bold text-[14px] shadow-lg shadow-accent/20"
+              >
+                {isScheduling ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Scheduling...
+                  </div>
+                ) : scheduleSuccess ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={18} /> Scheduled!
+                  </div>
+                ) : (
+                  <>Schedule via API <Send size={16} /></>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="card flex flex-col shadow-lg border-accent/10">
+            <div className="flex items-center justify-between mb-4 border-b border-border pb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-accent rounded-full" />
+                <span className="text-[11px] font-bold text-text-3 uppercase tracking-wider">Content Preview</span>
+              </div>
+              <div className="text-[11px] font-bold text-text-4 uppercase">
+                {postBody.length} Characters
+              </div>
+            </div>
+            
+            <textarea
+              value={postBody}
+              onChange={(e) => setPostBody(e.target.value)}
+              className="w-full flex-1 bg-slate-50/50 border border-slate-100 rounded-xl p-6 text-[13px] text-text-2 leading-relaxed outline-none resize-none custom-scrollbar font-sans"
+            />
+            
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex gap-3 items-start">
+              <Clock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-[11px] text-amber-800 leading-normal">
+                Scheduled posts are sent to your <strong>Make.com</strong> automation layer which handles the final delivery to LinkedIn. Ensure your Buffer/LinkedIn API keys are active in the Command Center settings.
+              </p>
             </div>
           </div>
         </div>

@@ -33,6 +33,7 @@ import OutreachHub from './components/OutreachHub';
 import GigCenter from './components/GigCenter';
 import AutomationHub from './components/AutomationHub';
 import Settings from './components/Settings';
+import MimoAssistant from './components/MimoAssistant';
 
 type Page = 'dashboard' | 'linkedin' | 'content' | 'jobs' | 'tracker' | 'email' | 'gigs' | 'automation' | 'settings';
 
@@ -152,6 +153,8 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      <MimoAssistant />
     </div>
   );
 }

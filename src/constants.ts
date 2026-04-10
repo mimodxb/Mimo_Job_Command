@@ -357,6 +357,30 @@ Book a call: calendly.com/contact-movsummirzazada
 
 Best,
 Movsum Mirzazada`
+  },
+  senior_ops: {
+    label:'Senior Ops (Tech/AI)',
+    subject:'Application: Senior Operations Manager — Movsum Mirzazada · AI & Ops Specialist',
+    body:`Dear [Hiring Manager],
+
+I am applying for the Senior Operations Manager position at [Company]. With 6+ years of experience driving operational excellence in the UAE, combined with a deep focus on AI implementation and team leadership, I am ready to help [Company] scale its operations with precision.
+
+Throughout my career, I have specialized in transforming complex operational challenges into streamlined, high-performance systems. At Four & More Living, I led the overhaul of supplier coordination, reducing order delays by 37% and significantly improving stock fulfillment accuracy. My leadership approach is centered on empowering cross-functional teams to deliver results under pressure, a skill I’ve honed while managing large-scale exhibition operations for international events like GITEX and Intersec Saudi.
+
+What sets me apart is my proactive approach to AI implementation. I don’t just manage operations; I automate them. I have built custom GPT workflows and prompt systems that have saved hundreds of manual hours, allowing teams to focus on high-value strategic tasks. I am eager to apply this expertise to optimize [Company]’s internal processes and drive operational scalability.
+
+Key highlights:
+• Team Leadership: Managed diverse teams in premium retail and hospitality, consistently achieving 28% monthly sales growth.
+• AI & Automation: Expert in leveraging LLMs and Make.com to build operational SOPs and automated systems.
+• Strategic Oversight: Proven track record of managing multi-million AED volumes and complex supplier networks.
+• Multilingual: Fluent in English, Azerbaijani, and Turkish, with professional Russian.
+
+I would welcome the opportunity to discuss how my background in scaling operations and leading technical transitions can benefit [Company].
+
+Best regards,
+Movsum Mirzazada
++971 58 592 9669 | contact@movsummirzazada.com
+linkedin.com/in/movsummirzazada`
   }
 };
 
