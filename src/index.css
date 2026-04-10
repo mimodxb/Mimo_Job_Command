@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-surface-3: #e2e8f0;
+  --color-border: #e2e8f0;
+  --color-border-2: #cbd5e1;
+  --color-accent: #2563eb;
+  --color-accent-2: #7c3aed;
+  --color-accent-3: #059669;
+  --color-text: #0f172a;
+  --color-text-2: #334155;
+  --color-text-3: #64748b;
+  --color-text-4: #94a3b8;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text font-sans text-[13px] leading-relaxed antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-[12px] p-4 shadow-sm;
+  }
+  
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-blue-700 shadow-sm shadow-blue-200;
+  }
+  
+  .btn-ghost {
+    @apply bg-white text-text-2 border border-border hover:bg-surface-2 hover:border-border-2 shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center text-[10.5px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider;
+  }
+  
+  .badge-blue { @apply bg-blue-50 text-blue-700 border border-blue-100; }
+  .badge-green { @apply bg-emerald-50 text-emerald-700 border border-emerald-100; }
+  .badge-yellow { @apply bg-amber-50 text-amber-700 border border-amber-100; }
+  .badge-red { @apply bg-red-50 text-red-700 border border-red-100; }
+  .badge-purple { @apply bg-violet-50 text-violet-700 border border-violet-100; }
+  .badge-gray { @apply bg-slate-100 text-slate-600 border border-slate-200; }
+
+  .input {
+    @apply w-full bg-white border border-border rounded-lg text-text px-3 py-2 text-[12.5px] outline-none transition-all focus:border-accent focus:ring-2 focus:ring-accent/10 placeholder:text-text-4 shadow-sm;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
