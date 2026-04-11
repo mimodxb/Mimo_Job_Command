@@ -1,14 +1,55 @@
+// wrangler.jsonc — Mimo Job Command Center
+// ─────────────────────────────────────────────────────────────────────────────
+// CRITICAL FIXES applied in this file:
+//
+//  1. Added "main": "src/worker.ts"
+//     Without this field, Cloudflare treats the deployment as static-assets-only.
+//     Static-only workers CANNOT use secrets, triggers, or environment variables.
+//     This is the root cause of ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
+//
+//  2. Added "assets.directory": "./dist"
+//     The Vite build outputs to ./dist. Wrangler must know where to find it.
+//
+//  3. Added "assets.binding": "ASSETS"
+//     This creates the ASSETS binding used in src/worker.ts to serve the SPA.
+//     Without the binding, the Worker cannot hand off requests to static files.
+//
+//  4. "assets.not_found_handling": "single-page-application"
+//     Ensures React Router routes (non-existent paths) fall back to index.html.
+//
+//  5. Removed "dependencies" — wrangler.jsonc must never contain npm dependencies.
+// ─────────────────────────────────────────────────────────────────────────────
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mimojobcommand",
+
+  // ── MANDATORY: Worker entry point ──────────────────────────────────────────
+  // This is the file that runs on Cloudflare's edge. Its presence transforms
+  // this deployment from "static CDN" into a full Cloudflare Worker that can
+  // read secrets, proxy API calls, and serve assets via the ASSETS binding.
+  "main": "src/worker.ts",
+
   "compatibility_date": "2026-04-11",
-  "observability": {
-    "enabled": true
-  },
+  "compatibility_flags": ["nodejs_compat"],
+
+  // ── Static Assets ──────────────────────────────────────────────────────────
   "assets": {
+    // Must point to the Vite build output directory
+    "directory": "./dist",
+    // Binding name used in worker.ts: env.ASSETS.fetch(request)
+    "binding": "ASSETS",
+    // React SPA mode: unknown paths serve index.html instead of 404
     "not_found_handling": "single-page-application"
   },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+
+  // ── Observability ──────────────────────────────────────────────────────────
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+
+  // ── Environment Variables ──────────────────────────────────────────────────
+  // DO NOT define secrets here. They are managed in the Cloudflare dashboard
+  // under Workers → Settings → Variables and Secrets.
+  // The Worker accesses them via: env.GEMINI_API_KEY, env.CLAUDE_API
 }

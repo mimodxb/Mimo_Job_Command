@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { JOB_BOARDS, COVER_TEMPLATES, PROFILE } from '../constants';
 import { Copy, ExternalLink, Mail, FileText, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { generateText, generateJSON } from '../lib/ai';
 
 export default function JobHunt() {
   const [activeTab, setActiveTab] = useState<'boards' | 'cover' | 'ats' | 'ai' | 'optimizer'>('boards');
@@ -25,18 +25,10 @@ export default function JobHunt() {
   const handleGenerateAI = async () => {
     if (!jobDescription) return;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      setAiCoverLetter("Error: GEMINI_API_KEY not found in environment.");
-      return;
-    }
-
     setIsGenerating(true);
     setAiCoverLetter('');
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-
       const prompt = `You are writing a highly tailored, professional cover letter for Movsum Mirzazada (Mimo). 
       
       User Profile:
@@ -58,12 +50,9 @@ export default function JobHunt() {
       - Call to Action: Mention availability for interview and his Calendly link: ${PROFILE.calendly}.
       - Output: Only the cover letter text. No subject line.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-      });
+      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
       
-      setAiCoverLetter(response.text || "Error: No response from Gemini.");
+      setAiCoverLetter(text || "Error: No response from Gemini.");
     } catch (error) {
       console.error(error);
       setAiCoverLetter("Error generating cover letter. Please try again.");
@@ -75,17 +64,10 @@ export default function JobHunt() {
   const handleOptimizeATS = async () => {
     if (!resumeText || !jobDescription) return;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      alert("GEMINI_API_KEY not found.");
-      return;
-    }
-
     setIsOptimizing(true);
     setOptimizationResult(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
       const prompt = `You are an expert ATS (Applicant Tracking System) Optimizer. Analyze the following Resume against the Job Description.
       
       Resume:
@@ -103,13 +85,7 @@ export default function JobHunt() {
       - Focus on technical skills, tools, and industry-specific terminology.
       - Output ONLY valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const result = JSON.parse(response.text || "{}");
+      const result = await generateJSON<{ score: number; missingKeywords: string[]; suggestions: string[] }>(prompt, { model: 'gemini-2.0-flash' });
       setOptimizationResult(result);
     } catch (error) {
       console.error(error);

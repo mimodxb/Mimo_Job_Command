@@ -3,7 +3,7 @@ import { POSTS, PROFILE } from '../constants';
 import { Post } from '../types';
 import { Copy, ExternalLink, AlertTriangle, Info, Palette, Calendar, Send, Clock, CheckCircle2, Sparkles, Loader2, Search } from 'lucide-react';
 import BannerDesigner from './BannerDesigner';
-import { GoogleGenAI } from "@google/genai";
+import { generateJSON } from '../lib/ai';
 
 export default function LinkedInEngine() {
   const [activeTab, setActiveTab] = useState<'posts' | 'schedule' | 'fixes' | 'actions' | 'banner' | 'scheduler' | 'auditor'>('posts');
@@ -36,17 +36,10 @@ export default function LinkedInEngine() {
   const handleAudit = async () => {
     if (!profileText) return;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      alert("GEMINI_API_KEY not found.");
-      return;
-    }
-
     setIsAuditing(true);
     setAuditResult(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
       const prompt = `You are an expert LinkedIn Profile Auditor. Analyze the following profile text for Movsum Mirzazada (Mimo).
       
       User Profile Context:
@@ -68,13 +61,7 @@ export default function LinkedInEngine() {
       - Ensure the "AI Automation" angle is highlighted.
       - Output ONLY valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const result = JSON.parse(response.text || "{}");
+      const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { model: 'gemini-2.0-flash' });
       setAuditResult(result);
     } catch (error) {
       console.error(error);

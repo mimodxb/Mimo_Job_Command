@@ -1,7 +1,24 @@
+/**
+ * MimoAssistant.tsx — FIXED
+ *
+ * Security fix: Removed direct GoogleGenAI instantiation with client-side API key.
+ * All AI calls now route through /api/ai (the Cloudflare Worker proxy).
+ * The API key is never sent to or stored in the browser.
+ */
+
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, Loader2, User, Bot, ChevronDown } from 'lucide-react';
+import {
+  MessageSquare,
+  X,
+  Send,
+  Sparkles,
+  Loader2,
+  User,
+  Bot,
+  ChevronDown,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from '../lib/ai';
 import { PROFILE } from '../constants';
 
 interface Message {
@@ -13,7 +30,11 @@ export default function MimoAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hi Mimo! I'm your AI Career Assistant. How can I help you dominate the UAE job market today?" }
+    {
+      role: 'assistant',
+      content:
+        "Hi Mimo! I'm your AI Career Assistant. How can I help you dominate the UAE job market today?",
+    },
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,54 +52,52 @@ export default function MimoAssistant() {
 
     const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Error: GEMINI_API_KEY not found. Please check your settings." }]);
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const conversationHistory = messages
+        .map((m) => `${m.role === 'user' ? 'Mimo' : 'Mimo AI'}: ${m.content}`)
+        .join('\n');
+
       const prompt = `You are "Mimo AI", a highly intelligent career strategist and assistant for Movsum Mirzazada (Mimo).
-      
-      Mimo's Profile:
-      - Name: ${PROFILE.name}
-      - Current Location: Dubai, UAE
-      - Background: 6+ years in Customer Operations, Retail Ops, Sales Strategy.
-      - Unique Edge: Internationally recognized actor (Cannes), AI Automation expert (Make.com/GPT).
-      - Goals: Secure a Senior Operations or Sales Strategy role in a tech-forward company in Dubai.
 
-      Your Tone:
-      - Professional, encouraging, and highly strategic.
-      - Use "we" and "us" to show partnership.
-      - Reference his specific achievements (28% sales growth, Cannes selection) when giving advice.
+Mimo's Profile:
+- Name: ${PROFILE.name}
+- Current Location: Dubai, UAE
+- Background: 6+ years in Customer Operations, Retail Ops, Sales Strategy.
+- Unique Edge: Internationally recognized actor (Cannes), AI Automation expert (Make.com/GPT).
+- Goals: Secure a Senior Operations or Sales Strategy role in a tech-forward company in Dubai.
 
-      The User is Mimo himself. Answer his questions about:
-      1. Career advice in the UAE.
-      2. How to improve his LinkedIn or Resume.
-      3. How to use this "Mimo Command Center" app.
-      4. General motivation and strategy.
+Your Tone:
+- Professional, encouraging, and highly strategic.
+- Use "we" and "us" to show partnership.
+- Reference his specific achievements (28% sales growth, Cannes selection) when giving advice.
 
-      Keep responses concise and actionable. Use markdown for formatting.
+The User is Mimo himself. Answer his questions about:
+1. Career advice in the UAE.
+2. How to improve his LinkedIn or Resume.
+3. How to use this "Mimo Command Center" app.
+4. General motivation and strategy.
 
-      Conversation History:
-      ${messages.map(m => `${m.role === 'user' ? 'Mimo' : 'Mimo AI'}: ${m.content}`).join('\n')}
-      Mimo: ${userMessage}
-      Mimo AI:`;
+Keep responses concise and actionable.
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: prompt,
-      });
+Conversation History:
+${conversationHistory}
+Mimo: ${userMessage}
+Mimo AI:`;
 
-      setMessages(prev => [...prev, { role: 'assistant', content: response.text || "I'm sorry, I couldn't generate a response." }]);
-    } catch (error) {
-      console.error(error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Something went wrong. Please try again." }]);
+      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
+      setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
+    } catch (err) {
+      console.error('Assistant error:', err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Something went wrong. Please try again.',
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +113,6 @@ export default function MimoAssistant() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="absolute bottom-20 right-0 w-[380px] h-[550px] bg-white rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden"
           >
-            {/* Header */}
             <div className="bg-accent p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -102,29 +120,44 @@ export default function MimoAssistant() {
                 </div>
                 <div>
                   <div className="font-display font-bold text-sm">Mimo AI Assistant</div>
-                  <div className="text-[10px] opacity-80 font-medium">Powered by Gemini 3.1 Pro</div>
+                  <div className="text-[10px] opacity-80 font-medium">Powered by Gemini</div>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-lg transition-colors">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="hover:bg-white/10 p-1 rounded-lg transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50">
               {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
-                      msg.role === 'user' ? 'bg-accent text-white' : 'bg-white border border-border text-accent'
-                    }`}>
+                <div
+                  key={i}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`flex gap-2 max-w-[85%] ${
+                      msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                    }`}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                        msg.role === 'user'
+                          ? 'bg-accent text-white'
+                          : 'bg-white border border-border text-accent'
+                      }`}
+                    >
                       {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                     </div>
-                    <div className={`p-3 rounded-2xl text-[13px] leading-relaxed shadow-sm ${
-                      msg.role === 'user' 
-                        ? 'bg-accent text-white rounded-tr-none' 
-                        : 'bg-white text-text border border-border rounded-tl-none'
-                    }`}>
+                    <div
+                      className={`p-3 rounded-2xl text-[13px] leading-relaxed shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-accent text-white rounded-tr-none'
+                          : 'bg-white text-text border border-border rounded-tl-none'
+                      }`}
+                    >
                       {msg.content}
                     </div>
                   </div>
@@ -145,18 +178,17 @@ export default function MimoAssistant() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <div className="p-4 bg-white border-t border-border">
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask Mimo AI anything..."
                   className="w-full bg-bg border border-border rounded-xl pl-4 pr-12 py-3 text-sm font-medium outline-none focus:border-accent transition-all"
                 />
-                <button 
+                <button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-accent text-white rounded-lg disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-accent/20"
@@ -169,10 +201,12 @@ export default function MimoAssistant() {
         )}
       </AnimatePresence>
 
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 ${
-          isOpen ? 'bg-white text-accent border border-accent rotate-90' : 'bg-accent text-white shadow-accent/40'
+          isOpen
+            ? 'bg-white text-accent border border-accent rotate-90'
+            : 'bg-accent text-white shadow-accent/40'
         }`}
       >
         {isOpen ? <ChevronDown size={28} /> : <Sparkles size={28} />}

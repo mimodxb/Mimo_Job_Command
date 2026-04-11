@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PILLARS } from '../constants';
 import { Pillar } from '../types';
 import { Sparkles, Copy, ExternalLink, Calendar, BookOpen, Zap, Loader2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { generateText, generateJSON } from '../lib/ai';
 
 export default function ContentAI() {
   const [activeTab, setActiveTab] = useState<'generator' | 'newsletter' | 'hooks' | 'calendar'>('generator');
@@ -17,18 +17,10 @@ export default function ContentAI() {
   const handleGenerate = async () => {
     if (!topic) return;
     
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      setGeneratedPost("Error: GEMINI_API_KEY not found in environment.");
-      return;
-    }
-
     setIsGenerating(true);
     setGeneratedPost('');
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-
       const toneMap: Record<string, string> = {
         warm: 'warm, human, conversational',
         direct: 'direct, punchy, confident',
@@ -55,12 +47,9 @@ Rules:
 
 Output only the post text, nothing else.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-      });
+      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
       
-      setGeneratedPost(response.text || "Error: No response from Gemini.");
+      setGeneratedPost(text || "Error: No response from Gemini.");
     } catch (error) {
       console.error(error);
       setGeneratedPost("Error generating post. Please try again.");
@@ -70,17 +59,10 @@ Output only the post text, nothing else.`;
   };
 
   const handleGenerateHooks = async () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      alert("GEMINI_API_KEY not found.");
-      return;
-    }
-
     setIsGeneratingHook(true);
     setGeneratedHooks([]);
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
       const prompt = `You are a viral LinkedIn content strategist. Generate 5 high-engagement "hooks" for Movsum Mirzazada (Mimo).
       
       User Profile:
@@ -99,13 +81,7 @@ Output only the post text, nothing else.`;
 
       Output ONLY valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-
-      const result = JSON.parse(response.text || "{}");
+      const result = await generateJSON<{ hooks: string[] }>(prompt, { model: 'gemini-2.0-flash' });
       setGeneratedHooks(result.hooks || []);
     } catch (error) {
       console.error(error);
