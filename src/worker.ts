@@ -113,6 +113,19 @@ export default {
       return handleAIRequest(request, env);
     }
 
+    // Automation Logs Endpoint
+    if (url.pathname === '/api/automation/logs') {
+      if (!env.DB) return jsonError('D1 Database not bound', 500);
+      try {
+        const { results } = await env.DB.prepare(
+          'SELECT * FROM automation_logs ORDER BY created_at DESC LIMIT 50'
+        ).all();
+        return jsonResponse(results, 200);
+      } catch (e) {
+        return jsonError(`DB Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+      }
+    }
+
     // Health check endpoint — useful for debugging and uptime monitoring
     if (url.pathname === '/api/health' || url.pathname === '/api/debug') {
       const allKeys = Object.keys(env);
@@ -128,6 +141,7 @@ export default {
             gemini: !!detectedGemini,
             claude: !!detectedClaude,
             openai: !!detectedOpenAI,
+            db: !!env.DB
           },
           env_keys_found: allKeys,
           naming_hints: {
@@ -142,7 +156,119 @@ export default {
 
     return env.ASSETS.fetch(request);
   },
+
+  /**
+   * Autonomous Job Hunter — Runs on a schedule (Cron)
+   */
+  async scheduled(event: any, env: Env, ctx: any) {
+    ctx.waitUntil(runAutonomousJobHunter(env));
+  }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Autonomous Job Hunter Logic
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runAutonomousJobHunter(env: Env) {
+  console.log('Starting Autonomous Job Hunter...');
+  
+  // User Provided Configuration
+  const TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN || '8318826404:AAE-6BapS_OMohQj3-_h2u-r2LMv_JF_WIw';
+  const TELEGRAM_CHAT_ID = env.TELEGRAM_CHAT_ID || '5350228504';
+  const GOOGLE_SHEET_ID = '1a4FtfiXNiPrxDXpBCIPtLhSqfIP3M6lrYPKJvzZaVZc';
+  
+  const RSS_FEEDS = [
+    'https://www.google.com/alerts/feeds/03687472253009828433/16481201381916462064', // Retail Ops Dubai
+    // Add more feeds here as needed
+  ];
+
+  if (!env.DB) {
+    console.error('D1 Database not bound. Skipping automation.');
+    return;
+  }
+
+  for (const feedUrl of RSS_FEEDS) {
+    try {
+      // 1. Fetch RSS Feed
+      const res = await fetch(feedUrl);
+      const xml = await res.text();
+
+      // 2. Parse XML
+      const entries = xml.match(/<entry>[\s\S]*?<\/entry>/g) || [];
+      console.log(`Feed: ${feedUrl} - Found ${entries.length} entries.`);
+
+      for (const entry of entries) {
+        const title = (entry.match(/<title type="html">([\s\S]*?)<\/title>/) || [])[1] || 'No Title';
+        const link = (entry.match(/<link href="([\s\S]*?)"/) || [])[1] || '';
+        const content = (entry.match(/<content type="html">([\s\S]*?)<\/content>/) || [])[1] || '';
+        const id = (entry.match(/<id>([\s\S]*?)<\/id>/) || [])[1] || link;
+
+        // 3. Deduplication (D1)
+        const existing = await env.DB.prepare('SELECT id FROM automation_logs WHERE job_id = ?').bind(id).first();
+        if (existing) continue;
+
+        console.log(`Processing: ${title}`);
+
+        // 4. AI Scoring & Extraction
+        const prompt = `Analyze this job for Mimo (Senior Ops Specialist).
+        Title: ${title}
+        Content: ${content}
+        
+        Return JSON:
+        {
+          "score": 0-100,
+          "bucket": "PRIMARY" | "SECONDARY" | "OTHER",
+          "reason": "1-2 sentences",
+          "apply": boolean,
+          "extracted_email": "email or null",
+          "email_subject": "subject line",
+          "email_body": "personalized body"
+        }`;
+
+        const aiRes = await handleAIRequest(new Request('http://local/api/ai', {
+          method: 'POST',
+          body: JSON.stringify({ prompt, responseFormat: 'json' })
+        }), env);
+        
+        const aiData = await aiRes.json() as any;
+        const analysis = JSON.parse(aiData.text.replace(/```json|```/g, '').trim());
+
+        // 5. Auto-Apply Logic (Email Path)
+        let applyStatus = analysis.apply ? 'PENDING' : 'SKIPPED';
+        if (analysis.apply && analysis.extracted_email) {
+          // Here we would call a Gmail/SendGrid API. For now, we mark as READY_TO_EMAIL
+          applyStatus = 'READY_TO_EMAIL';
+        }
+
+        // 6. Log to D1
+        await env.DB.prepare(
+          'INSERT INTO automation_logs (job_id, title, url, score, bucket, reason, apply_status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(id, title, link, analysis.score, analysis.bucket, analysis.reason, applyStatus).run();
+
+        // 7. Telegram Notification
+        if (analysis.score >= 70) {
+          const statusEmoji = applyStatus === 'READY_TO_EMAIL' ? '📧' : '🚀';
+          const message = `${statusEmoji} *Job Match (${analysis.score}%)*\n\n*Title:* ${title}\n*Bucket:* ${analysis.bucket}\n*Reason:* ${analysis.reason}\n${analysis.extracted_email ? `*Contact:* ${analysis.extracted_email}\n` : ''}\n[View & Apply](${link})`;
+          
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: message,
+              parse_mode: 'Markdown'
+            })
+          });
+        }
+        
+        // 8. Google Sheets (Optional: Requires Service Account setup)
+        // For now, D1 is our primary source of truth which the UI displays.
+      }
+    } catch (error) {
+      console.error(`Error processing feed ${feedUrl}:`, error);
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main AI Request Handler

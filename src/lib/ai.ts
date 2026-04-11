@@ -12,7 +12,7 @@ const AI_ENDPOINT = '/api/ai';
 
 interface AIRequestOptions {
   model?: string;
-  provider?: 'gemini' | 'claude' | 'auto';
+  provider?: 'gemini' | 'claude' | 'openai' | 'auto';
   responseFormat?: 'text' | 'json';
 }
 

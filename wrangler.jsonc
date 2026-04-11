@@ -46,10 +46,21 @@
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
-  }
+  },
 
-  // ── Environment Variables ──────────────────────────────────────────────────
-  // DO NOT define secrets here. They are managed in the Cloudflare dashboard
-  // under Workers → Settings → Variables and Secrets.
-  // The Worker accesses them via: env.GEMINI_API_KEY, env.CLAUDE_API
+  // ── Triggers (Cron Jobs) ───────────────────────────────────────────────────
+  // This runs the "Autonomous Job Hunter" every hour.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+
+  // ── D1 Database ────────────────────────────────────────────────────────────
+  // This tracks seen jobs, scores, and application status.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mimo_db",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ]
 }
