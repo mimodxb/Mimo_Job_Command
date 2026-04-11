@@ -12,6 +12,7 @@ const AI_ENDPOINT = '/api/ai';
 
 interface AIRequestOptions {
   model?: string;
+  provider?: 'gemini' | 'claude' | 'auto';
   responseFormat?: 'text' | 'json';
 }
 
@@ -33,6 +34,7 @@ export async function generateText(
     body: JSON.stringify({
       prompt,
       model: options.model ?? 'gemini-1.5-flash',
+      provider: options.provider ?? 'auto',
       responseFormat: 'text',
     }),
   });
@@ -61,6 +63,7 @@ export async function generateJSON<T = unknown>(
     body: JSON.stringify({
       prompt,
       model: options.model ?? 'gemini-1.5-flash',
+      provider: options.provider ?? 'auto',
       responseFormat: 'json',
     }),
   });

@@ -11,6 +11,7 @@ export default function JobHunt() {
   const [clManager, setClManager] = useState('');
   const [clDetail, setClDetail] = useState('');
   const [clEmail, setClEmail] = useState('');
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
 
   // AI States
   const [jobDescription, setJobDescription] = useState('');
@@ -50,7 +51,10 @@ export default function JobHunt() {
       - Call to Action: Mention availability for interview and his Calendly link: ${PROFILE.calendly}.
       - Output: Only the cover letter text. No subject line.`;
 
-      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
+      const text = await generateText(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       
       setAiCoverLetter(text || "Error: No response from Gemini.");
     } catch (error) {
@@ -86,7 +90,10 @@ export default function JobHunt() {
       - Focus on technical skills, tools, and industry-specific terminology.
       - Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ score: number; missingKeywords: string[]; suggestions: string[] }>(prompt, { model: 'gemini-1.5-flash' });
+      const result = await generateJSON<{ score: number; missingKeywords: string[]; suggestions: string[] }>(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       setOptimizationResult(result);
     } catch (error) {
       console.error(error);
@@ -278,7 +285,23 @@ export default function JobHunt() {
         <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6">
           <div className="card space-y-6 shadow-md">
             <div>
-              <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase mb-3">1. Paste Job Description</div>
+              <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase mb-3">1. AI Provider</div>
+              <div className="grid grid-cols-3 gap-2">
+                {['auto', 'gemini', 'claude'].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setProvider(p as any)}
+                    className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                      provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
+                    }`}
+                  >
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase mb-3">2. Paste Job Description</div>
               <textarea 
                 placeholder="Paste the full job description here..." 
                 value={jobDescription}
@@ -360,6 +383,22 @@ export default function JobHunt() {
               <CheckCircle2 size={16} className="text-accent" /> ATS Optimization Engine
             </div>
             <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">AI Provider</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['auto', 'gemini', 'claude'].map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setProvider(p as any)}
+                      className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                        provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Your Resume (Text)</label>
                 <textarea 

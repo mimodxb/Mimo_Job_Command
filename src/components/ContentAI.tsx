@@ -9,6 +9,7 @@ export default function ContentAI() {
   const [selectedPillar, setSelectedPillar] = useState<Pillar>(PILLARS[1]);
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState('warm');
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingHook, setIsGeneratingHook] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
@@ -47,7 +48,10 @@ Rules:
 
 Output only the post text, nothing else.`;
 
-      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
+      const text = await generateText(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       
       setGeneratedPost(text || "Error: No response from Gemini.");
     } catch (error) {
@@ -82,7 +86,10 @@ Output only the post text, nothing else.`;
 
       Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ hooks: string[] }>(prompt, { model: 'gemini-1.5-flash' });
+      const result = await generateJSON<{ hooks: string[] }>(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       setGeneratedHooks(result.hooks || []);
     } catch (error) {
       console.error(error);
@@ -156,6 +163,22 @@ Output only the post text, nothing else.`;
                     onChange={(e) => setTopic(e.target.value)}
                     className="input h-24 resize-none font-medium"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-text-3 uppercase mb-1.5 ml-1">AI Provider</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['auto', 'gemini', 'claude'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setProvider(p as any)}
+                        className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                          provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
+                        }`}
+                      >
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-text-3 uppercase mb-1.5 ml-1">Tone</label>

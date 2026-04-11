@@ -37,6 +37,7 @@ export default function MimoAssistant() {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -87,7 +88,10 @@ ${conversationHistory}
 Mimo: ${userMessage}
 Mimo AI:`;
 
-      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
+      const text = await generateText(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
     } catch (err) {
       console.error('Assistant error:', err);
@@ -121,7 +125,21 @@ Mimo AI:`;
                 </div>
                 <div>
                   <div className="font-display font-bold text-sm">Mimo AI Assistant</div>
-                  <div className="text-[10px] opacity-80 font-medium">Powered by Gemini</div>
+                  <div className="flex items-center gap-2">
+                    <select 
+                      value={provider}
+                      onChange={(e) => setProvider(e.target.value as any)}
+                      className="bg-white/10 text-[10px] border-none outline-none rounded px-1 font-medium cursor-pointer hover:bg-white/20 transition-colors"
+                    >
+                      <option value="auto" className="text-text">Auto</option>
+                      <option value="gemini" className="text-text">Gemini</option>
+                      <option value="claude" className="text-text">Claude</option>
+                    </select>
+                    <span className="text-[10px] opacity-60">•</span>
+                    <div className="text-[10px] opacity-80 font-medium">
+                      {provider === 'auto' ? 'Smart Routing' : provider === 'gemini' ? 'Gemini 1.5' : 'Claude 3.5'}
+                    </div>
+                  </div>
                 </div>
               </div>
               <button

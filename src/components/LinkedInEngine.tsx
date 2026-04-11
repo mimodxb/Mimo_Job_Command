@@ -19,6 +19,7 @@ export default function LinkedInEngine() {
   // Auditor States
   const [profileText, setProfileText] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
   const [auditResult, setAuditResult] = useState<{ score: number; fixes: string[]; summary: string } | null>(null);
 
   const handleSchedule = async () => {
@@ -61,7 +62,10 @@ export default function LinkedInEngine() {
       - Ensure the "AI Automation" angle is highlighted.
       - Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { model: 'gemini-1.5-flash' });
+      const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { 
+        model: 'gemini-1.5-flash',
+        provider: provider 
+      });
       setAuditResult(result);
     } catch (error) {
       console.error(error);
@@ -266,6 +270,22 @@ export default function LinkedInEngine() {
               <Search size={16} className="text-accent" /> Profile Audit
             </div>
             <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">AI Provider</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['auto', 'gemini', 'claude'].map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setProvider(p as any)}
+                      className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                        provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">Paste Profile / About Section</label>
                 <textarea 
