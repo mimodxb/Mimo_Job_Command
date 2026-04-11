@@ -58,7 +58,7 @@
   // This tracks seen jobs, scores, and application status.
   "d1_databases": [
     {
-      "binding": "my-binding",
+      "binding": "DB",
       "database_name": "mimo_db",
       "database_id": "6755b97e-e38f-47c2-a5c2-c69941174814"
     }

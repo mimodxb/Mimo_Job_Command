@@ -703,22 +703,47 @@ async function handleGoogleCallback(request: Request, env: Env) {
 
   const db = env.DB || env['my-binding'];
   if (db) {
-    await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
-      .bind('google_tokens', JSON.stringify(tokens))
-      .run();
+    try {
+      await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+        .bind('google_tokens', JSON.stringify(tokens))
+        .run();
+    } catch (e) {
+      console.error('DB Error saving Google tokens:', e);
+      return jsonError(`Database Error: Could not save tokens. Ensure D1 is initialized. Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+    }
   }
 
   return new Response(`
     <html>
-      <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb;">
-        <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-          <h1 style="color: #10b981;">Connected!</h1>
-          <p style="color: #4b5563;">Google account linked successfully. This window will close.</p>
+      <head>
+        <title>Connected!</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body style="font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f3f4f6;">
+        <div style="text-align: center; padding: 2.5rem; background: white; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-width: 90%; width: 400px;">
+          <div style="width: 64px; height: 64px; background: #fef2f2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </div>
+          <h1 style="color: #111827; margin: 0 0 0.5rem; font-size: 1.5rem; font-weight: 800;">Google Connected!</h1>
+          <p style="color: #4b5563; margin: 0 0 2rem; font-size: 0.95rem; line-height: 1.5;">Your Google account has been linked successfully. You can now close this window and return to the dashboard.</p>
+          
+          <button onclick="window.close()" style="background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; cursor: pointer; width: 100%; font-size: 1rem; transition: background 0.2s;">
+            Close Window
+          </button>
+          
+          <p style="color: #9ca3af; font-size: 0.75rem; margin-top: 1.5rem;">If this window doesn't close automatically, please close it manually.</p>
+
           <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'google' }, '*');
-              setTimeout(() => window.close(), 2000);
+            function finish() {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'google' }, '*');
+                setTimeout(() => {
+                  try { window.close(); } catch(e) {}
+                }, 1500);
+              }
             }
+            finish();
+            window.onload = finish;
           </script>
         </div>
       </body>
@@ -773,22 +798,48 @@ async function handleLinkedInCallback(request: Request, env: Env) {
 
   const db = env.DB || env['my-binding'];
   if (db) {
-    await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
-      .bind('linkedin_tokens', JSON.stringify(tokens))
-      .run();
+    try {
+      await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+        .bind('linkedin_tokens', JSON.stringify(tokens))
+        .run();
+    } catch (e) {
+      console.error('DB Error saving LinkedIn tokens:', e);
+      return jsonError(`Database Error: Could not save tokens. Ensure D1 is initialized. Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+    }
   }
 
   return new Response(`
     <html>
-      <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb;">
-        <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-          <h1 style="color: #0077b5;">Connected!</h1>
-          <p style="color: #4b5563;">LinkedIn account linked successfully. This window will close.</p>
+      <head>
+        <title>Connected!</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body style="font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f3f4f6;">
+        <div style="text-align: center; padding: 2.5rem; background: white; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-width: 90%; width: 400px;">
+          <div style="width: 64px; height: 64px; background: #e0f2fe; color: #0077b5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <h1 style="color: #111827; margin: 0 0 0.5rem; font-size: 1.5rem; font-weight: 800;">LinkedIn Connected!</h1>
+          <p style="color: #4b5563; margin: 0 0 2rem; font-size: 0.95rem; line-height: 1.5;">Your account has been linked successfully. You can now close this window and return to the dashboard.</p>
+          
+          <button onclick="window.close()" style="background: #0077b5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; cursor: pointer; width: 100%; font-size: 1rem; transition: background 0.2s;">
+            Close Window
+          </button>
+          
+          <p style="color: #9ca3af; font-size: 0.75rem; margin-top: 1.5rem;">If this window doesn't close automatically, please close it manually.</p>
+
           <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'linkedin' }, '*');
-              setTimeout(() => window.close(), 2000);
+            function finish() {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'linkedin' }, '*');
+                setTimeout(() => {
+                  try { window.close(); } catch(e) {}
+                }, 1500);
+              }
             }
+            finish();
+            // Fallback for some browsers
+            window.onload = finish;
           </script>
         </div>
       </body>

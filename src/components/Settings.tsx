@@ -241,6 +241,27 @@ export default function Settings() {
           ))}
         </div>
       </div>
+      {/* Debug Info */}
+      <div className="mt-8 pt-8 border-t border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Troubleshooting</h3>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-amber-600 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm text-amber-800 font-medium">Redirect URI Helper</p>
+              <p className="text-xs text-amber-700">
+                Copy this exact URL into your LinkedIn/Google Developer Portal:
+              </p>
+              <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 font-mono text-[10px] text-amber-900 break-all">
+                {window.location.origin}/auth/linkedin/callback
+              </div>
+              <p className="text-[10px] text-amber-600 italic">
+                Note: If your production site is not updating, ensure you have run "wrangler deploy" and initialized your remote D1 database.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
