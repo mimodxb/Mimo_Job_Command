@@ -1,7 +1,59 @@
+import { useState, useEffect } from 'react';
 import { PROFILE } from '../constants';
-import { User, Shield, Database, Download, Upload, Trash2, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { User, Shield, Database, Download, Upload, Trash2, ExternalLink, CheckCircle2, Mail, Linkedin, Table2, Loader2, XCircle } from 'lucide-react';
+import { initiateOAuth } from '../lib/auth';
 
 export default function Settings() {
+  const [connections, setConnections] = useState<{ google: boolean; linkedin: boolean }>({ google: false, linkedin: false });
+  const [isConnecting, setIsConnecting] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchConnections();
+  }, []);
+
+  const fetchConnections = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json() as { connections: { google: boolean; linkedin: boolean } };
+        setConnections(data.connections);
+      }
+    } catch (err) {
+      console.error('Failed to fetch connections:', err);
+    }
+  };
+
+  const handleConnect = async (provider: 'google' | 'linkedin') => {
+    setIsConnecting(provider);
+    try {
+      await initiateOAuth(provider);
+      await fetchConnections();
+    } catch (err) {
+      console.error(`Failed to connect ${provider}:`, err);
+      alert(err instanceof Error ? err.message : `Failed to connect ${provider}`);
+    } finally {
+      setIsConnecting(null);
+    }
+  };
+
+  const handleDisconnect = async (provider: 'google' | 'linkedin') => {
+    if (!confirm(`Disconnect ${provider}? This will stop real-time updates.`)) return;
+    
+    setIsConnecting(provider);
+    try {
+      const res = await fetch(`/api/settings/disconnect?provider=${provider}`, { method: 'POST' });
+      if (res.ok) {
+        await fetchConnections();
+      } else {
+        const data = await res.json() as { error: string };
+        alert(data.error);
+      }
+    } catch (err) {
+      console.error(`Failed to disconnect ${provider}:`, err);
+    } finally {
+      setIsConnecting(null);
+    }
+  };
   const exportAllData = () => {
     const data = {
       tasks: JSON.parse(localStorage.getItem('tasks') || '[]'),
@@ -81,6 +133,54 @@ export default function Settings() {
               <div className="flex items-center gap-2">
                 <div className="badge badge-green">Connected</div>
                 <span className="text-[11px] text-text-4">Gemini 1.5 Flash active</span>
+              </div>
+            </div>
+
+            <hr className="border-border" />
+
+            <div className="space-y-4">
+              <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase">Third-Party Connections</div>
+              
+              {/* Google Connection */}
+              <div className="flex items-center justify-between p-3 bg-bg border border-border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-red-50 text-red-500 rounded-lg flex items-center justify-center">
+                    <Mail size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-bold text-text">Google (Gmail & Sheets)</div>
+                    <div className="text-[11px] text-text-3">Auto-log to Sheets & Auto-apply via Gmail</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => connections.google ? handleDisconnect('google') : handleConnect('google')}
+                  disabled={isConnecting === 'google'}
+                  className={`btn btn-sm ${connections.google ? 'btn-ghost text-red-600 hover:bg-red-50' : 'btn-primary'}`}
+                >
+                  {isConnecting === 'google' ? <Loader2 size={14} className="animate-spin" /> : 
+                   connections.google ? <><XCircle size={14} className="mr-1" /> Disconnect</> : 'Connect'}
+                </button>
+              </div>
+
+              {/* LinkedIn Connection */}
+              <div className="flex items-center justify-between p-3 bg-bg border border-border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                    <Linkedin size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-bold text-text">LinkedIn</div>
+                    <div className="text-[11px] text-text-3">Profile auditing & Social posting</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => connections.linkedin ? handleDisconnect('linkedin') : handleConnect('linkedin')}
+                  disabled={isConnecting === 'linkedin'}
+                  className={`btn btn-sm ${connections.linkedin ? 'btn-ghost text-red-600 hover:bg-red-50' : 'btn-primary'}`}
+                >
+                  {isConnecting === 'linkedin' ? <Loader2 size={14} className="animate-spin" /> : 
+                   connections.linkedin ? <><XCircle size={14} className="mr-1" /> Disconnect</> : 'Connect'}
+                </button>
               </div>
             </div>
 

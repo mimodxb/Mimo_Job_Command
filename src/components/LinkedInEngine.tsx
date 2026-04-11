@@ -6,7 +6,7 @@ import BannerDesigner from './BannerDesigner';
 import { generateJSON } from '../lib/ai';
 
 export default function LinkedInEngine() {
-  const [activeTab, setActiveTab] = useState<'posts' | 'schedule' | 'fixes' | 'actions' | 'banner' | 'scheduler' | 'auditor'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'schedule' | 'fixes' | 'actions' | 'banner' | 'scheduler' | 'auditor' | 'visibility'>('posts');
   const [selectedPost, setSelectedPost] = useState<Post>(POSTS[0]);
   const [postBody, setPostBody] = useState(POSTS[0].body);
 
@@ -15,6 +15,8 @@ export default function LinkedInEngine() {
   const [scheduledTime, setScheduledTime] = useState('');
   const [isScheduling, setIsScheduling] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postSuccess, setPostSuccess] = useState(false);
 
   // Auditor States
   const [profileText, setProfileText] = useState('');
@@ -34,6 +36,33 @@ export default function LinkedInEngine() {
     setTimeout(() => setScheduleSuccess(false), 3000);
   };
 
+  const handleDirectPost = async () => {
+    if (!postBody) return;
+    setIsPosting(true);
+    setPostSuccess(false);
+
+    try {
+      const res = await fetch('/api/linkedin/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: postBody })
+      });
+
+      if (res.ok) {
+        setPostSuccess(true);
+        setTimeout(() => setPostSuccess(false), 3000);
+      } else {
+        const err = await res.json() as { error: string };
+        alert(`Post failed: ${err.error}`);
+      }
+    } catch (error) {
+      console.error('Post Error:', error);
+      alert('Failed to connect to server');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   const handleAudit = async () => {
     if (!profileText) return;
 
@@ -41,24 +70,27 @@ export default function LinkedInEngine() {
     setAuditResult(null);
 
     try {
-      const prompt = `You are an expert LinkedIn Profile Auditor. Analyze the following profile text for Movsum Mirzazada (Mimo).
+      const prompt = `You are an AI Profile Optimization Architect. Analyze the following profile text for Movsum Mirzazada (Mimo).
+      
+      Goal: Fix the "Recruiter vs Job Seeker" and "Azerbaijan vs UAE" mismatch.
       
       User Profile Context:
       - Name: ${PROFILE.name}
       - Target Roles: Senior Operations Manager, Retail Ops, Customer Ops, Sales Strategy.
       - Key Strengths: AI Implementation, UAE Market Expertise, Team Leadership, Multilingual.
+      - Current Issue: Algorithm flags as 'Recruiter' and suggests 'Azerbaijan' content despite living in UAE for 7 years.
 
       Profile Text to Audit:
       "${profileText}"
 
       Provide a JSON response with:
       1. score: A number from 0-100.
-      2. fixes: An array of 5-7 specific, actionable improvements (e.g., "Add 'CRM' to headline", "Quantify the 28% growth in the About section").
+      2. fixes: An array of 5-7 specific, actionable improvements to force a 're-index' of location to UAE and intent to 'Job Seeker'.
       3. summary: A 2-sentence professional summary of the profile's current impact.
 
       Rules:
       - Be critical but constructive.
-      - Focus on SEO keywords for the UAE market.
+      - Focus on UAE-specific SEO keywords (Dubai, Abu Dhabi, GCC).
       - Ensure the "AI Automation" angle is highlighted.
       - Output ONLY valid JSON.`;
 
@@ -100,6 +132,7 @@ export default function LinkedInEngine() {
         {[
           { id: 'posts', label: 'Post Library' },
           { id: 'schedule', label: 'Weekly Schedule' },
+          { id: 'visibility', label: 'Visibility Report' },
           { id: 'fixes', label: 'Profile Fixes' },
           { id: 'banner', label: 'Banner Designer' },
           { id: 'auditor', label: 'AI Profile Auditor' },
@@ -152,6 +185,14 @@ export default function LinkedInEngine() {
               <div className="flex gap-2">
                 <button onClick={copyPost} className="btn btn-ghost btn-sm gap-2 font-bold">
                   <Copy size={14} /> Copy Post
+                </button>
+                <button 
+                  onClick={handleDirectPost} 
+                  disabled={isPosting}
+                  className="btn btn-accent btn-sm gap-2 font-bold"
+                >
+                  {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {postSuccess ? 'Posted!' : 'Post Now'}
                 </button>
                 <button onClick={openLinkedIn} className="btn btn-primary btn-sm gap-2 font-bold">
                   Open LinkedIn <ExternalLink size={14} />
@@ -223,6 +264,54 @@ export default function LinkedInEngine() {
                   <span className="badge badge-blue">{s.tag}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'visibility' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card bg-red-50 border-red-100">
+              <div className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Identity Mismatch</div>
+              <div className="text-2xl font-black text-red-700">RECRUITER</div>
+              <p className="text-[11px] text-red-600/80 mt-1">Algorithm incorrectly flags you as a hiring entity.</p>
+            </div>
+            <div className="card bg-amber-50 border-amber-100">
+              <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Geographic Mismatch</div>
+              <div className="text-2xl font-black text-amber-700">AZERBAIJAN</div>
+              <p className="text-[11px] text-amber-600/80 mt-1">Feed dominated by Baku despite 7 years in UAE.</p>
+            </div>
+            <div className="card bg-green-50 border-green-100">
+              <div className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Target Re-Index</div>
+              <div className="text-2xl font-black text-green-700">UAE / SEEKER</div>
+              <p className="text-[11px] text-green-600/80 mt-1">Goal: Force algorithm to recognize UAE Job Seeker intent.</p>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <div className="flex items-center gap-2 text-text font-bold text-sm">
+              <Sparkles size={16} className="text-accent" /> Weekly Visibility Strategy
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h3 className="text-[13px] font-bold text-text mb-2">1. Content Filtering Strategy</h3>
+                <p className="text-[12px] text-text-3 leading-relaxed">
+                  Draft posts using "Dubai", "UAE", and "GCC" in the first 2 lines. This forces the LinkedIn NLP engine to associate your profile with the local market. Avoid using general "hiring" keywords to stop the Recruiter misclassification.
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h3 className="text-[13px] font-bold text-text mb-2">2. Country Filtering Advice</h3>
+                <p className="text-[12px] text-text-3 leading-relaxed">
+                  Your webhook data shows 65% of notifications coming from Azerbaijan. To suppress this, interact exclusively with UAE-based company pages (Majid Al Futtaim, Emirates, etc.) for the next 14 days.
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h3 className="text-[13px] font-bold text-text mb-2">3. Strategic Profile Adjustment</h3>
+                <p className="text-[12px] text-text-3 leading-relaxed">
+                  Change your "Location" in settings to "Dubai, United Arab Emirates" specifically, and ensure your "About" section mentions "7 years of UAE experience" in the first sentence.
+                </p>
+              </div>
             </div>
           </div>
         </div>

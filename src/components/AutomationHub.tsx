@@ -29,12 +29,26 @@ export default function AutomationHub() {
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connections, setConnections] = useState<{ google: boolean; linkedin: boolean }>({ google: false, linkedin: false });
 
   useEffect(() => {
     fetchLogs();
+    fetchConnections();
     const interval = setInterval(fetchLogs, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, []);
+
+  const fetchConnections = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json() as { connections: { google: boolean; linkedin: boolean } };
+        setConnections(data.connections);
+      }
+    } catch (err) {
+      console.error('Failed to fetch connections:', err);
+    }
+  };
 
   const fetchLogs = async () => {
     try {
@@ -275,8 +289,16 @@ export default function AutomationHub() {
               {gmailFlows.map((f, i) => (
                 <div
                   key={i}
-                  className="card flex gap-4 p-4 bg-bg border-border"
+                  className="card flex gap-4 p-4 bg-bg border-border relative overflow-hidden"
                 >
+                  {!connections.google && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-10">
+                      <div className="bg-white p-3 rounded-lg shadow-lg border border-border flex flex-col items-center gap-2">
+                        <XCircle size={20} className="text-red-500" />
+                        <span className="text-[11px] font-bold text-text uppercase tracking-wider">Google Not Connected</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="w-10 h-10 bg-surface-2 rounded-lg flex items-center justify-center text-accent flex-shrink-0">
                     <f.icon size={20} />
                   </div>

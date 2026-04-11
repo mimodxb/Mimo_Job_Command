@@ -1,7 +1,7 @@
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect } from 'react';
 import { Task, Application } from '../types';
 import { INITIAL_TASKS } from '../constants';
-import { ExternalLink, CheckCircle2, Circle, TrendingUp, Users, Briefcase, Mail } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Circle, TrendingUp, Users, Briefcase, Mail, Loader2, AlertCircle } from 'lucide-react';
 
 interface DashboardProps {
   tasks: Task[];
@@ -11,6 +11,32 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ tasks, setTasks, apps, setActivePage }: DashboardProps) {
+  const [liStats, setLiStats] = useState<{ followers: number; impressions: number } | null>(null);
+  const [isLoadingLi, setIsLoadingLi] = useState(true);
+  const [liError, setLiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchLinkedInStats();
+  }, []);
+
+  const fetchLinkedInStats = async () => {
+    try {
+      const res = await fetch('/api/linkedin/profile');
+      if (res.ok) {
+        const data = await res.json() as { followers: number; impressions: number };
+        setLiStats({ followers: data.followers, impressions: data.impressions });
+      } else if (res.status === 401) {
+        setLiError('LinkedIn not connected');
+      } else {
+        setLiError('Failed to fetch stats');
+      }
+    } catch (err) {
+      setLiError('Network error');
+    } finally {
+      setIsLoadingLi(false);
+    }
+  };
+
   const today = new Date().toLocaleDateString('en-GB', { 
     weekday: 'long', 
     day: 'numeric', 
@@ -27,10 +53,41 @@ export default function Dashboard({ tasks, setTasks, apps, setActivePage }: Dash
   };
 
   const stats = [
-    { label: 'LinkedIn Followers', value: '2,508', sub: 'Target: 3,200', color: 'text-yellow-500', progress: 78, icon: Users },
-    { label: 'Impressions / yr', value: '7,758', sub: '+2,575% growth', color: 'text-green-500', progress: 15, icon: TrendingUp },
-    { label: 'Applications Sent', value: apps.length.toString(), sub: 'Target: 5/day', color: 'text-accent', progress: Math.min(100, (apps.length / 5) * 100), icon: Briefcase },
-    { label: 'Newsletter Subs', value: '377', sub: 'Active subscribers', color: 'text-accent-2', progress: 63, icon: Mail },
+    { 
+      label: 'LinkedIn Followers', 
+      value: isLoadingLi ? '...' : liStats ? liStats.followers.toLocaleString() : 'N/A', 
+      sub: liError === 'LinkedIn not connected' ? 'Connect in Settings' : 'Target: 3,200', 
+      color: 'text-yellow-500', 
+      progress: liStats ? Math.min(100, (liStats.followers / 3200) * 100) : 0, 
+      icon: Users,
+      loading: isLoadingLi,
+      error: liError
+    },
+    { 
+      label: 'Impressions / yr', 
+      value: isLoadingLi ? '...' : liStats ? liStats.impressions.toLocaleString() : 'N/A', 
+      sub: '+2,575% growth', 
+      color: 'text-green-500', 
+      progress: 15, 
+      icon: TrendingUp,
+      loading: isLoadingLi
+    },
+    { 
+      label: 'Applications Sent', 
+      value: apps.length.toString(), 
+      sub: 'Target: 5/day', 
+      color: 'text-accent', 
+      progress: Math.min(100, (apps.length / 5) * 100), 
+      icon: Briefcase 
+    },
+    { 
+      label: 'Active Jobs Found', 
+      value: 'Live', 
+      sub: 'Scanning hourly', 
+      color: 'text-accent-2', 
+      progress: 100, 
+      icon: Mail 
+    },
   ];
 
   const quickLinks = [
@@ -43,8 +100,8 @@ export default function Dashboard({ tasks, setTasks, apps, setActivePage }: Dash
   ];
 
   const milestones = [
-    { label: 'Followers', now: 2508, target: 3200, pct: 78 },
-    { label: 'Weekly impressions', now: 150, target: 1000, pct: 15 },
+    { label: 'Followers', now: liStats?.followers || 0, target: 3200, pct: liStats ? Math.min(100, (liStats.followers / 3200) * 100) : 0 },
+    { label: 'Weekly impressions', now: liStats?.impressions || 0, target: 1000, pct: 15 },
     { label: 'Search appearances', now: 5, target: 40, pct: 12 },
     { label: 'Posts published', now: 3, target: 40, pct: 7 }
   ];
@@ -67,10 +124,16 @@ export default function Dashboard({ tasks, setTasks, apps, setActivePage }: Dash
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white border border-border rounded-[12px] p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div key={i} className="bg-white border border-border rounded-[12px] p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
             <div className="text-[10.5px] text-text-3 font-bold uppercase tracking-wider mb-1.5">{stat.label}</div>
-            <div className={`font-display text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-            <div className="text-[11.5px] text-text-2 font-medium mt-1">{stat.sub}</div>
+            <div className="flex items-baseline gap-2">
+              <div className={`font-display text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+              {stat.loading && <Loader2 size={16} className="animate-spin text-text-4" />}
+            </div>
+            <div className="text-[11.5px] text-text-2 font-medium mt-1 flex items-center gap-1">
+              {stat.error && <AlertCircle size={12} className="text-red-500" />}
+              {stat.sub}
+            </div>
             <div className="h-2 bg-slate-100 rounded-full mt-4 overflow-hidden border border-slate-200/50">
               <div 
                 className={`h-full rounded-full transition-all duration-700 ease-out ${stat.color.replace('text-', 'bg-')}`} 

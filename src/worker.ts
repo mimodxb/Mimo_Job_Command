@@ -113,6 +113,60 @@ export default {
       return handleAIRequest(request, env);
     }
 
+    // OAuth Routes
+    if (url.pathname === '/api/auth/google/url') {
+      return handleGoogleAuthUrl(request, env);
+    }
+    if (url.pathname === '/auth/google/callback') {
+      return handleGoogleCallback(request, env);
+    }
+    if (url.pathname === '/api/auth/linkedin/url') {
+      return handleLinkedInAuthUrl(request, env);
+    }
+    if (url.pathname === '/auth/linkedin/callback') {
+      return handleLinkedInCallback(request, env);
+    }
+    if (url.pathname === '/api/linkedin/profile') {
+      return handleLinkedInProfile(request, env);
+    }
+    if (url.pathname === '/api/linkedin/post' && request.method === 'POST') {
+      return handleLinkedInPost(request, env);
+    }
+    if (url.pathname === '/api/webhooks/linkedin') {
+      return handleLinkedInWebhook(request, env);
+    }
+
+    // Settings Endpoint
+    if (url.pathname === '/api/settings') {
+      const db = env.DB || env['my-binding'];
+      if (!db) return jsonError('D1 Database not bound', 500);
+      try {
+        const results = await db.prepare('SELECT key, updated_at FROM settings').all();
+        const connections = {
+          google: results.results.some(r => r.key === 'google_tokens'),
+          linkedin: results.results.some(r => r.key === 'linkedin_tokens'),
+        };
+        return jsonResponse({ connections }, 200);
+      } catch (e) {
+        return jsonError(`DB Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+      }
+    }
+
+    if (url.pathname === '/api/settings/disconnect' && request.method === 'POST') {
+      const db = env.DB || env['my-binding'];
+      if (!db) return jsonError('D1 Database not bound', 500);
+      const provider = url.searchParams.get('provider');
+      if (!provider) return jsonError('Missing provider', 400);
+      
+      const key = provider === 'google' ? 'google_tokens' : 'linkedin_tokens';
+      try {
+        await db.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
+        return jsonResponse({ success: true }, 200);
+      } catch (e) {
+        return jsonError(`DB Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+      }
+    }
+
     // Automation Logs Endpoint
     if (url.pathname === '/api/automation/logs') {
       const db = env.DB || env['my-binding'];
@@ -248,6 +302,38 @@ async function runAutonomousJobHunter(env: Env) {
         await db.prepare(
           'INSERT INTO automation_logs (job_id, title, url, score, bucket, reason, apply_status) VALUES (?, ?, ?, ?, ?, ?, ?)'
         ).bind(id, title, link, analysis.score, analysis.bucket, analysis.reason, applyStatus).run();
+
+        // 6b. Log to Google Sheets (if connected)
+        try {
+          await appendToGoogleSheet(env, GOOGLE_SHEET_ID, [
+            new Date().toISOString(),
+            'Google Alerts',
+            title,
+            '', // Company (could extract with AI)
+            '', // Location
+            link,
+            analysis.reason,
+            analysis.score,
+            analysis.bucket,
+            analysis.apply ? 'YES' : 'NO',
+            applyStatus,
+            analysis.extracted_email || ''
+          ]);
+        } catch (sheetErr) {
+          console.error('Sheet Log Error:', sheetErr);
+        }
+
+        // 6c. Send Gmail (if connected and email found)
+        if (applyStatus === 'READY_TO_EMAIL' && analysis.extracted_email) {
+          try {
+            await sendGmail(env, analysis.extracted_email, analysis.email_subject, analysis.email_body);
+            await db.prepare('UPDATE automation_logs SET apply_status = ? WHERE job_id = ?')
+              .bind('EMAILED', id)
+              .run();
+          } catch (gmailErr) {
+            console.error('Gmail Send Error:', gmailErr);
+          }
+        }
 
         // 7. Telegram Notification
         if (analysis.score >= 70) {
@@ -565,8 +651,381 @@ async function callOpenAI(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Response Helpers
+// OAuth Handlers
 // ─────────────────────────────────────────────────────────────────────────────
+
+async function handleGoogleAuthUrl(request: Request, env: Env) {
+  const clientId = env.GOOGLE_CLIENT_ID;
+  if (!clientId) return jsonError('GOOGLE_CLIENT_ID not configured', 500);
+
+  const url = new URL(request.url);
+  const redirectUri = `${url.origin}/auth/google/callback`;
+  
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email openid',
+    access_type: 'offline',
+    prompt: 'consent',
+  });
+
+  return jsonResponse({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` }, 200);
+}
+
+async function handleGoogleCallback(request: Request, env: Env) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  if (!code) return jsonError('No code provided', 400);
+
+  const clientId = env.GOOGLE_CLIENT_ID;
+  const clientSecret = env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = `${url.origin}/auth/google/callback`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    }),
+  });
+
+  const tokens = await tokenRes.json() as any;
+  if (tokens.error) return jsonError(`Google Token Error: ${tokens.error_description || tokens.error}`, 500);
+
+  const db = env.DB || env['my-binding'];
+  if (db) {
+    await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+      .bind('google_tokens', JSON.stringify(tokens))
+      .run();
+  }
+
+  return new Response(`
+    <html>
+      <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb;">
+        <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+          <h1 style="color: #10b981;">Connected!</h1>
+          <p style="color: #4b5563;">Google account linked successfully. This window will close.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'google' }, '*');
+              setTimeout(() => window.close(), 2000);
+            }
+          </script>
+        </div>
+      </body>
+    </html>
+  `, { headers: { 'Content-Type': 'text/html' } });
+}
+
+async function handleLinkedInAuthUrl(request: Request, env: Env) {
+  const clientId = env.LINKEDIN_CLIENT_ID;
+  if (!clientId) return jsonError('LINKEDIN_CLIENT_ID not configured', 500);
+
+  const url = new URL(request.url);
+  const redirectUri = `${url.origin}/auth/linkedin/callback`;
+  
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: 'openid profile email w_member_social',
+  });
+
+  return jsonResponse({ url: `https://www.linkedin.com/oauth/v2/authorization?${params}` }, 200);
+}
+
+async function handleLinkedInCallback(request: Request, env: Env) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  if (!code) return jsonError('No code provided', 400);
+
+  const clientId = env.LINKEDIN_CLIENT_ID;
+  const clientSecret = env.LINKEDIN_CLIENT_SECRET;
+  const redirectUri = `${url.origin}/auth/linkedin/callback`;
+
+  const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+    }),
+  });
+
+  const tokens = await tokenRes.json() as any;
+  if (tokens.error) return jsonError(`LinkedIn Token Error: ${tokens.error_description || tokens.error}`, 500);
+
+  const db = env.DB || env['my-binding'];
+  if (db) {
+    await db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+      .bind('linkedin_tokens', JSON.stringify(tokens))
+      .run();
+  }
+
+  return new Response(`
+    <html>
+      <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb;">
+        <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+          <h1 style="color: #0077b5;">Connected!</h1>
+          <p style="color: #4b5563;">LinkedIn account linked successfully. This window will close.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', provider: 'linkedin' }, '*');
+              setTimeout(() => window.close(), 2000);
+            }
+          </script>
+        </div>
+      </body>
+    </html>
+  `, { headers: { 'Content-Type': 'text/html' } });
+}
+
+async function handleLinkedInProfile(request: Request, env: Env) {
+  const accessToken = await getLinkedInAccessToken(env);
+  if (!accessToken) return jsonError('LinkedIn not connected', 401);
+
+  try {
+    // 1. Modern OpenID User Info
+    const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const profile = await profileRes.json() as any;
+
+    // 2. Network Size (Followers)
+    let followers = 0;
+    try {
+      // Use the sub (ID) from the userinfo response
+      const networkRes = await fetch(`https://api.linkedin.com/v2/networkSizes/urn:li:person:${profile.sub}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const network = await networkRes.json() as any;
+      followers = network.firstDegreeSize || 0;
+    } catch (e) {
+      console.error('LinkedIn Network Size Error:', e);
+    }
+
+    return jsonResponse({
+      id: profile.sub,
+      firstName: profile.given_name,
+      lastName: profile.family_name,
+      email: profile.email,
+      picture: profile.picture,
+      followers: followers || 0,
+      impressions: 0, 
+    }, 200);
+  } catch (e) {
+    return jsonError(`LinkedIn Profile Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+}
+
+async function handleLinkedInPost(request: Request, env: Env) {
+  const accessToken = await getLinkedInAccessToken(env);
+  if (!accessToken) return jsonError('LinkedIn not connected', 401);
+
+  try {
+    const { text } = await request.json() as { text: string };
+    if (!text) return jsonError('Missing text', 400);
+
+    // Get user ID first
+    const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const profile = await profileRes.json() as any;
+    const authorUrn = `urn:li:person:${profile.sub}`;
+
+    const postRes = await fetch('https://api.linkedin.com/v2/posts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
+      },
+      body: JSON.stringify({
+        author: authorUrn,
+        commentary: text,
+        visibility: 'PUBLIC',
+        distribution: {
+          feedDistribution: 'MAIN_FEED',
+          targetEntities: [],
+          thirdPartyDistributionChannels: []
+        },
+        lifecycleState: 'PUBLISHED',
+        isReshareDisabledByAuthor: false
+      })
+    });
+
+    if (!postRes.ok) {
+      const err = await postRes.text();
+      return jsonError(`LinkedIn Post Error: ${err}`, postRes.status);
+    }
+
+    return jsonResponse({ status: 'success' }, 201);
+  } catch (e) {
+    return jsonError(`LinkedIn Post Error: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+}
+
+async function handleLinkedInWebhook(request: Request, env: Env) {
+  // LinkedIn Webhook Challenge
+  const url = new URL(request.url);
+  const challenge = url.searchParams.get('challenge');
+  if (challenge) {
+    return new Response(challenge, { status: 200 });
+  }
+
+  // Handle actual events
+  try {
+    const event = await request.json() as any;
+    console.log('LinkedIn Webhook Event:', JSON.stringify(event));
+    
+    // AI Profile Optimization Architect Logic
+    // We want to detect if the event is related to "Recruiter" activity or "Azerbaijan" location
+    let bucket = 'WEBHOOK';
+    let reason = `Received event: ${event.type || 'unknown'}`;
+    let score = 0;
+
+    // Heuristic analysis (in a real app, we'd use Gemini here)
+    const eventStr = JSON.stringify(event).toLowerCase();
+    const isRecruiterRelated = eventStr.includes('recruiter') || eventStr.includes('hiring') || eventStr.includes('talent');
+    const isAzerbaijanRelated = eventStr.includes('azerbaijan') || eventStr.includes('baku');
+    const isUAERelated = eventStr.includes('uae') || eventStr.includes('dubai') || eventStr.includes('abu dhabi');
+
+    if (isRecruiterRelated || isAzerbaijanRelated) {
+      bucket = 'LI_MISMATCH';
+      score = 100; // High priority mismatch
+      reason = `Mismatch Detected: ${isRecruiterRelated ? '[Recruiter Intent]' : ''} ${isAzerbaijanRelated ? '[Azerbaijan Location]' : ''}`;
+    } else if (isUAERelated) {
+      bucket = 'LI_OPTIMIZATION';
+      score = 50;
+      reason = 'Positive Signal: UAE Market Interaction detected.';
+    }
+
+    // Log to D1 for visibility in Automation Hub
+    const db = env.DB || env['my-binding'];
+    if (db) {
+      await db.prepare(
+        'INSERT INTO automation_logs (job_id, title, url, score, bucket, reason, apply_status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        `li_event_${Date.now()}`,
+        'LinkedIn Optimization Architect',
+        '#',
+        score,
+        bucket,
+        reason,
+        'INFO'
+      ).run();
+    }
+
+    return new Response('OK', { status: 200 });
+  } catch (e) {
+    return new Response('Error', { status: 500 });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google API Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getLinkedInAccessToken(env: Env) {
+  const db = env.DB || env['my-binding'];
+  if (!db) return null;
+
+  const row = await db.prepare('SELECT value FROM settings WHERE key = ?').bind('linkedin_tokens').first();
+  if (!row) return null;
+
+  const tokens = JSON.parse(row.value as string);
+  return tokens.access_token;
+}
+
+async function getGoogleAccessToken(env: Env) {
+  const db = env.DB || env['my-binding'];
+  if (!db) return null;
+
+  const row = await db.prepare('SELECT value FROM settings WHERE key = ?').bind('google_tokens').first();
+  if (!row) return null;
+
+  const tokens = JSON.parse(row.value as string);
+  
+  // Simple check if token is expired (Google tokens usually last 1 hour)
+  // For a robust app, we should check expiry and use refresh_token
+  // But for now, we'll try to refresh if we have a refresh_token
+  if (tokens.refresh_token) {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
+        refresh_token: tokens.refresh_token,
+        grant_type: 'refresh_token',
+      }),
+    });
+    const newTokens = await res.json() as any;
+    if (!newTokens.error) {
+      const updated = { ...tokens, ...newTokens };
+      await db.prepare('UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?')
+        .bind(JSON.stringify(updated), 'google_tokens')
+        .run();
+      return updated.access_token;
+    }
+  }
+
+  return tokens.access_token;
+}
+
+async function appendToGoogleSheet(env: Env, spreadsheetId: string, values: any[]) {
+  const accessToken = await getGoogleAccessToken(env);
+  if (!accessToken) return;
+
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:append?valueInputOption=USER_ENTERED`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      values: [values],
+    }),
+  });
+}
+
+async function sendGmail(env: Env, to: string, subject: string, body: string) {
+  const accessToken = await getGoogleAccessToken(env);
+  if (!accessToken) return;
+
+  const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+  const message = [
+    `To: ${to}`,
+    `Subject: ${utf8Subject}`,
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    body,
+  ].join('\r\n');
+
+  const encodedMessage = btoa(unescape(encodeURIComponent(message)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      raw: encodedMessage,
+    }),
+  });
+}
 
 function jsonResponse<T>(body: T, status: number): Response {
   return new Response(JSON.stringify(body), {
