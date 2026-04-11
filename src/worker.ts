@@ -36,8 +36,7 @@
 
 export interface Env {
   ASSETS: Fetcher;
-  GEMINI_API_KEY: string;
-  CLAUDE_API: string;
+  [key: string]: any;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,6 +128,26 @@ interface AISuccessResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Key Detection Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Robustly retrieves a secret from the environment, checking multiple common naming conventions.
+ * This handles cases where the user might have named the secret in lowercase or with a prefix.
+ */
+function getSecret(env: any, possibleKeys: string[]): string | undefined {
+  for (const key of possibleKeys) {
+    if (env[key] && typeof env[key] === 'string' && env[key].trim() !== '') {
+      return env[key].trim();
+    }
+  }
+  return undefined;
+}
+
+const GEMINI_KEY_NAMES = ['GEMINI_API_KEY', 'gemini_api_key', 'VITE_GEMINI_API_KEY', 'GOOGLE_AI_STUDIO_URL'];
+const CLAUDE_KEY_NAMES = ['CLAUDE_API', 'claude_api', 'mimo_job_tracker_claude', 'CLAUDE_API_KEY'];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Worker Entry Point
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -144,14 +163,25 @@ export default {
       return handleAIRequest(request, env);
     }
 
-    // Health check endpoint — useful for Cloudflare uptime monitoring
-    if (url.pathname === '/api/health' && request.method === 'GET') {
+    // Health check endpoint — useful for debugging and uptime monitoring
+    if (url.pathname === '/api/health' || url.pathname === '/api/debug') {
+      const allKeys = Object.keys(env);
+      const detectedGemini = getSecret(env, GEMINI_KEY_NAMES);
+      const detectedClaude = getSecret(env, CLAUDE_KEY_NAMES);
+
       return jsonResponse(
         {
           status: 'ok',
-          gemini: !!env.GEMINI_API_KEY,
-          claude: !!env.CLAUDE_API,
           timestamp: new Date().toISOString(),
+          secrets_detected: {
+            gemini: !!detectedGemini,
+            claude: !!detectedClaude,
+          },
+          env_keys_found: allKeys, // Lists all keys Cloudflare is passing (values are hidden)
+          naming_hints: {
+            gemini_expected: GEMINI_KEY_NAMES,
+            claude_expected: CLAUDE_KEY_NAMES
+          }
         },
         200
       );
@@ -206,7 +236,7 @@ async function handleAIRequest(request: Request, env: Env): Promise<Response> {
         `Reason: ${geminiResult.errorBody}`
       );
 
-      if (!env.CLAUDE_API) {
+      if (!getSecret(env, CLAUDE_KEY_NAMES)) {
         return jsonError(
           `Gemini quota/model error (${geminiResult.status}) and no Claude fallback configured. ` +
           `Original error: ${geminiResult.errorBody}`,
@@ -275,12 +305,19 @@ async function callGeminiRaw(
   format: 'text' | 'json',
   env: Env
 ): Promise<GeminiRawResult> {
-  if (!env.GEMINI_API_KEY) {
-    const errResponse = jsonError('GEMINI_API_KEY secret is not configured in Cloudflare Worker', 503);
+  const apiKey = getSecret(env, GEMINI_KEY_NAMES);
+  
+  if (!apiKey) {
+    const errResponse = jsonError(
+      `GEMINI_API_KEY secret is not configured in Cloudflare Worker. ` +
+      `Checked names: ${GEMINI_KEY_NAMES.join(', ')}. ` +
+      `Detected env keys: ${Object.keys(env).join(', ')}`, 
+      503
+    );
     return { ok: false, response: errResponse, status: 503, errorBody: 'Missing API key' };
   }
 
-  const url = buildGeminiUrl(modelName, env.GEMINI_API_KEY);
+  const url = buildGeminiUrl(modelName, apiKey);
 
   // ── Build request payload ──────────────────────────────────────────────────
   const payload: Record<string, unknown> = {
@@ -392,8 +429,15 @@ async function callClaude(
   format: 'text' | 'json',
   env: Env
 ): Promise<Response> {
-  if (!env.CLAUDE_API) {
-    return jsonError('CLAUDE_API secret is not configured in Cloudflare Worker', 503);
+  const apiKey = getSecret(env, CLAUDE_KEY_NAMES);
+
+  if (!apiKey) {
+    return jsonError(
+      `CLAUDE_API secret is not configured in Cloudflare Worker. ` +
+      `Checked names: ${CLAUDE_KEY_NAMES.join(', ')}. ` +
+      `Detected env keys: ${Object.keys(env).join(', ')}`, 
+      503
+    );
   }
 
   // If a Gemini model name was passed explicitly, use the default Claude model.
@@ -428,7 +472,7 @@ async function callClaude(
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
-        'x-api-key':         env.CLAUDE_API,
+        'x-api-key':         apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(anthropicPayload),

@@ -40,8 +40,16 @@ export default defineConfig({
               const { prompt, model, responseFormat, provider } = parsedBody;
 
               const selectedProvider = provider || 'auto';
-              const geminiKey = process.env.GEMINI_API_KEY;
-              const claudeKey = process.env.CLAUDE_API;
+              
+              const getSecret = (keys: string[]) => {
+                for (const key of keys) {
+                  if (process.env[key]) return process.env[key];
+                }
+                return undefined;
+              };
+
+              const geminiKey = getSecret(['GEMINI_API_KEY', 'gemini_api_key', 'VITE_GEMINI_API_KEY', 'GOOGLE_AI_STUDIO_URL']);
+              const claudeKey = getSecret(['CLAUDE_API', 'claude_api', 'mimo_job_tracker_claude', 'CLAUDE_API_KEY']);
 
               // Simple local implementation of the provider logic
               if (selectedProvider === 'claude' || (selectedProvider === 'auto' && !geminiKey && claudeKey)) {
