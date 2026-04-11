@@ -37,7 +37,7 @@ export default function MimoAssistant() {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'openai' | 'auto'>('auto');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -134,10 +134,11 @@ Mimo AI:`;
                       <option value="auto" className="text-text">Auto</option>
                       <option value="gemini" className="text-text">Gemini</option>
                       <option value="claude" className="text-text">Claude</option>
+                      <option value="openai" className="text-text">OpenAI</option>
                     </select>
                     <span className="text-[10px] opacity-60">•</span>
                     <div className="text-[10px] opacity-80 font-medium">
-                      {provider === 'auto' ? 'Smart Routing' : provider === 'gemini' ? 'Gemini 1.5' : 'Claude 3.5'}
+                      {provider === 'auto' ? 'Smart Routing' : provider === 'gemini' ? 'Gemini 1.5' : provider === 'claude' ? 'Claude 3.5' : 'GPT-4o'}
                     </div>
                   </div>
                 </div>

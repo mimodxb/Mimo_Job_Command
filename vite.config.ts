@@ -50,9 +50,40 @@ export default defineConfig({
 
               const geminiKey = getSecret(['GEMINI_API_KEY', 'gemini_api_key', 'VITE_GEMINI_API_KEY', 'GOOGLE_AI_STUDIO_URL']);
               const claudeKey = getSecret(['CLAUDE_API', 'claude_api', 'mimo_job_tracker_claude', 'CLAUDE_API_KEY']);
+              const openaiKey = getSecret(['OPENAI_API_KEY', 'openai_api_key', 'OPEN_AI_API_KEY']);
 
               // Simple local implementation of the provider logic
-              if (selectedProvider === 'claude' || (selectedProvider === 'auto' && !geminiKey && claudeKey)) {
+              if (selectedProvider === 'openai' || (selectedProvider === 'auto' && !geminiKey && openaiKey)) {
+                if (!openaiKey) {
+                  res.statusCode = 503;
+                  res.end(JSON.stringify({ error: 'OPENAI_API_KEY not found in environment' }));
+                  return;
+                }
+                // Call OpenAI
+                const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiKey}`
+                  },
+                  body: JSON.stringify({
+                    model: model || 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: prompt }],
+                    ...(responseFormat === 'json' ? { response_format: { type: 'json_object' } } : {})
+                  })
+                });
+                const data: any = await openaiRes.json();
+                if (!openaiRes.ok) {
+                  res.statusCode = openaiRes.status;
+                  res.end(JSON.stringify({ error: data.error?.message || 'OpenAI API error' }));
+                  return;
+                }
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ text: data.choices[0].message.content }));
+                return;
+              }
+
+              if (selectedProvider === 'claude' || (selectedProvider === 'auto' && !geminiKey && !openaiKey && claudeKey)) {
                 if (!claudeKey) {
                   res.statusCode = 503;
                   res.end(JSON.stringify({ error: 'CLAUDE_API not found in environment' }));
@@ -90,16 +121,10 @@ export default defineConfig({
                 return;
               }
 
-              // Match the worker.ts logic for v1 vs v1beta
+              // Match the worker.ts logic
               const geminiModel = model || 'gemini-1.5-flash';
-              let apiVersion = 'v1';
-              let modelId = geminiModel;
-
-              if (geminiModel.includes('2.0') || geminiModel.includes('2.5')) {
-                apiVersion = 'v1beta';
-              } else if (geminiModel === 'gemini-1.5-flash') {
-                modelId = 'gemini-1.5-flash-latest';
-              }
+              const apiVersion = 'v1beta';
+              const modelId = geminiModel === 'gemini-1.5-flash' ? 'gemini-1.5-flash' : geminiModel;
 
               const geminiUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelId}:generateContent?key=${geminiKey}`;
               

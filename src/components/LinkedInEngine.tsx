@@ -19,7 +19,7 @@ export default function LinkedInEngine() {
   // Auditor States
   const [profileText, setProfileText] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);
-  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'openai' | 'auto'>('auto');
   const [auditResult, setAuditResult] = useState<{ score: number; fixes: string[]; summary: string } | null>(null);
 
   const handleSchedule = async () => {
@@ -272,16 +272,16 @@ export default function LinkedInEngine() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-text-4 uppercase tracking-wider">AI Provider</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['auto', 'gemini', 'claude'].map(p => (
+                <div className="grid grid-cols-4 gap-2">
+                  {['auto', 'gemini', 'claude', 'openai'].map(p => (
                     <button
                       key={p}
                       onClick={() => setProvider(p as any)}
-                      className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                         provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
                       }`}
                     >
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                      {p === 'openai' ? 'OpenAI' : p.charAt(0).toUpperCase() + p.slice(1)}
                     </button>
                   ))}
                 </div>

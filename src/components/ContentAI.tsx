@@ -9,7 +9,7 @@ export default function ContentAI() {
   const [selectedPillar, setSelectedPillar] = useState<Pillar>(PILLARS[1]);
   const [topic, setTopic] = useState('');
   const [tone, setTone] = useState('warm');
-  const [provider, setProvider] = useState<'gemini' | 'claude' | 'auto'>('auto');
+  const [provider, setProvider] = useState<'gemini' | 'claude' | 'openai' | 'auto'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingHook, setIsGeneratingHook] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
@@ -166,16 +166,16 @@ Output only the post text, nothing else.`;
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-text-3 uppercase mb-1.5 ml-1">AI Provider</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['auto', 'gemini', 'claude'].map(p => (
+                  <div className="grid grid-cols-4 gap-2">
+                    {['auto', 'gemini', 'claude', 'openai'].map(p => (
                       <button
                         key={p}
                         onClick={() => setProvider(p as any)}
-                        className={`px-2 py-1.5 rounded-lg text-[10.5px] font-bold border transition-all ${
+                        className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
                           provider === p ? 'bg-accent text-white border-accent shadow-sm' : 'bg-white text-text-3 border-border hover:border-border-2'
                         }`}
                       >
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                        {p === 'openai' ? 'OpenAI' : p.charAt(0).toUpperCase() + p.slice(1)}
                       </button>
                     ))}
                   </div>
