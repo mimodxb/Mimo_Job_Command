@@ -141,10 +141,10 @@ export default {
       const db = env.DB || env['my-binding'];
       if (!db) return jsonError('D1 Database not bound', 500);
       try {
-        const results = await db.prepare('SELECT key, updated_at FROM settings').all();
+        const { results } = await db.prepare('SELECT key FROM settings').all();
         const connections = {
-          google: results.results.some(r => r.key === 'google_tokens'),
-          linkedin: results.results.some(r => r.key === 'linkedin_tokens'),
+          google: results.some(r => r.key === 'google_tokens'),
+          linkedin: results.some(r => r.key === 'linkedin_tokens'),
         };
         return jsonResponse({ connections }, 200);
       } catch (e) {
@@ -659,7 +659,8 @@ async function handleGoogleAuthUrl(request: Request, env: Env) {
   if (!clientId) return jsonError('GOOGLE_CLIENT_ID not configured', 500);
 
   const url = new URL(request.url);
-  const redirectUri = `${url.origin}/auth/google/callback`;
+  const clientOrigin = url.searchParams.get('origin') || url.origin.replace('http://', 'https://');
+  const redirectUri = `${clientOrigin}/auth/google/callback`;
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -668,6 +669,7 @@ async function handleGoogleAuthUrl(request: Request, env: Env) {
     scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email openid',
     access_type: 'offline',
     prompt: 'consent',
+    state: clientOrigin, // Pass origin in state
   });
 
   return jsonResponse({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` }, 200);
@@ -676,11 +678,13 @@ async function handleGoogleAuthUrl(request: Request, env: Env) {
 async function handleGoogleCallback(request: Request, env: Env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state'); // Recover origin from state
   if (!code) return jsonError('No code provided', 400);
 
   const clientId = env.GOOGLE_CLIENT_ID;
   const clientSecret = env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = `${url.origin}/auth/google/callback`;
+  const clientOrigin = state || url.origin.replace('http://', 'https://');
+  const redirectUri = `${clientOrigin}/auth/google/callback`;
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -727,13 +731,15 @@ async function handleLinkedInAuthUrl(request: Request, env: Env) {
   if (!clientId) return jsonError('LINKEDIN_CLIENT_ID not configured', 500);
 
   const url = new URL(request.url);
-  const redirectUri = `${url.origin}/auth/linkedin/callback`;
+  const clientOrigin = url.searchParams.get('origin') || url.origin.replace('http://', 'https://');
+  const redirectUri = `${clientOrigin}/auth/linkedin/callback`;
   
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
     scope: 'openid profile email w_member_social',
+    state: clientOrigin, // Pass origin in state
   });
 
   return jsonResponse({ url: `https://www.linkedin.com/oauth/v2/authorization?${params}` }, 200);
@@ -742,11 +748,13 @@ async function handleLinkedInAuthUrl(request: Request, env: Env) {
 async function handleLinkedInCallback(request: Request, env: Env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state'); // Recover origin from state
   if (!code) return jsonError('No code provided', 400);
 
   const clientId = env.LINKEDIN_CLIENT_ID;
   const clientSecret = env.LINKEDIN_CLIENT_SECRET;
-  const redirectUri = `${url.origin}/auth/linkedin/callback`;
+  const clientOrigin = state || url.origin.replace('http://', 'https://');
+  const redirectUri = `${clientOrigin}/auth/linkedin/callback`;
 
   const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
     method: 'POST',

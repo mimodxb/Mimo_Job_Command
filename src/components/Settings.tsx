@@ -141,6 +141,16 @@ export default function Settings() {
             <div className="space-y-4">
               <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase">Third-Party Connections</div>
               
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                <div className="text-[10px] font-bold text-amber-700 uppercase mb-1">Action Required</div>
+                <p className="text-[11px] text-amber-600 leading-tight">
+                  Ensure your LinkedIn/Google Developer portals have this Redirect URI:
+                  <code className="block mt-1 p-1 bg-white/50 rounded border border-amber-200 break-all">
+                    {window.location.origin}/auth/linkedin/callback
+                  </code>
+                </p>
+              </div>
+
               {/* Google Connection */}
               <div className="flex items-center justify-between p-3 bg-bg border border-border rounded-lg">
                 <div className="flex items-center gap-3">

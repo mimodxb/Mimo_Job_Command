@@ -70,28 +70,27 @@ export default function LinkedInEngine() {
     setAuditResult(null);
 
     try {
-      const prompt = `You are an AI Profile Optimization Architect. Analyze the following profile text for Movsum Mirzazada (Mimo).
+      const prompt = `You are the AI Profile Optimization Architect. Your mission is to re-engineer Movsum Mirzazada's (Mimo) LinkedIn presence to fix two critical mismatches:
       
-      Goal: Fix the "Recruiter vs Job Seeker" and "Azerbaijan vs UAE" mismatch.
-      
-      User Profile Context:
-      - Name: ${PROFILE.name}
-      - Target Roles: Senior Operations Manager, Retail Ops, Customer Ops, Sales Strategy.
-      - Key Strengths: AI Implementation, UAE Market Expertise, Team Leadership, Multilingual.
-      - Current Issue: Algorithm flags as 'Recruiter' and suggests 'Azerbaijan' content despite living in UAE for 7 years.
+      1. IDENTITY MISMATCH: He is currently flagged as a 'Recruiter'. He MUST be indexed as a 'Job Seeker' (Senior Operations/Sales).
+      2. GEOGRAPHIC MISMATCH: He is currently indexed in 'Azerbaijan'. He MUST be indexed in 'Dubai, UAE' (where he has lived for 7 years).
 
-      Profile Text to Audit:
+      Profile Context:
+      - Name: ${PROFILE.name}
+      - Title: ${PROFILE.title}
+      - Target Market: Dubai/UAE (Retail, Ops, Tech, AI).
+      
+      Input Text to Audit:
       "${profileText}"
 
-      Provide a JSON response with:
-      1. score: A number from 0-100.
-      2. fixes: An array of 5-7 specific, actionable improvements to force a 're-index' of location to UAE and intent to 'Job Seeker'.
-      3. summary: A 2-sentence professional summary of the profile's current impact.
+      Your Audit must provide a JSON response with:
+      1. score: 0-100 (How well does this text signal 'UAE Job Seeker'?)
+      2. fixes: Array of 6 specific edits (e.g., "Delete the word 'hiring' from paragraph 2", "Add 'Based in Dubai since 2017' to headline").
+      3. summary: 2-sentence architect's assessment of the current visibility risk.
 
       Rules:
-      - Be critical but constructive.
-      - Focus on UAE-specific SEO keywords (Dubai, Abu Dhabi, GCC).
-      - Ensure the "AI Automation" angle is highlighted.
+      - Be ruthless about removing 'Recruiter' signals.
+      - Prioritize 'Dubai' and 'UAE' keywords in the first 150 characters.
       - Output ONLY valid JSON.`;
 
       const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { 
@@ -329,14 +328,14 @@ export default function LinkedInEngine() {
             <div className="text-[10.5px] font-bold tracking-wider text-red-500 uppercase mb-4">Profile Fix Checklist</div>
             <div className="space-y-2">
               {[
-                'Rewrite headline: "Customer Operations & Sales | CRM | Exhibition Sales | Retail Ops | Dubai, UAE"',
-                'Enable Creator Mode (Settings → Visibility → Creator Mode)',
-                'Enable Open to Work (Recruiters only)',
-                'Update LinkedIn banner with name + title',
-                'Add skills: CRM, Retail Operations, Exhibition Sales, Lightspeed POS',
-                'Request 3 LinkedIn recommendations from past managers',
-                'Add Calendly link to Contact Info section',
-                'Enable LinkedIn Newsletter and publish first article',
+                'Strip "Hiring" or "Recruiter" keywords from Headline/About',
+                'Change Location to "Dubai, United Arab Emirates" (Specific)',
+                'Add "7+ years of UAE experience" to first line of About',
+                'Enable "Open to Work" (Visible to Recruiters Only)',
+                'Enable Creator Mode & set topics: #Dubai, #UAE, #Operations',
+                'Update Banner: Professional photo with Dubai skyline/office',
+                'Add Skills: CRM, Lightspeed POS, UAE Market, Retail Ops',
+                'Request recommendations from UAE-based managers',
               ].map((fix, i) => (
                 <label key={i} className="flex items-start gap-3 p-3 bg-bg border border-border rounded-lg cursor-pointer group hover:border-border-2">
                   <input type="checkbox" className="mt-1 accent-accent" />

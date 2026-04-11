@@ -4,7 +4,8 @@
 
 export async function initiateOAuth(provider: 'google' | 'linkedin') {
   try {
-    const response = await fetch(`/api/auth/${provider}/url`);
+    const origin = window.location.origin;
+    const response = await fetch(`/api/auth/${provider}/url?origin=${encodeURIComponent(origin)}`);
     if (!response.ok) throw new Error(`Failed to get ${provider} auth URL`);
     
     const { url, error } = await response.json() as { url?: string; error?: string };
