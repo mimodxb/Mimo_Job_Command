@@ -61,14 +61,14 @@ async function handleAIRequest(request: Request, env: Env): Promise<Response> {
       return jsonError('Missing required field: prompt', 400);
     }
 
+    const model = body.model || 'gemini-1.5-flash';
     const apiKey = env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      return jsonError('Server configuration error: AI service unavailable', 503);
+      return jsonError('Server configuration error: GEMINI_API_KEY is missing on Cloudflare', 503);
     }
 
-    const model = body.model || 'gemini-2.0-flash';
-
-    // Call Google Gemini REST API directly (no SDK needed in Worker)
+    // Call Google Gemini REST API directly
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -76,7 +76,6 @@ async function handleAIRequest(request: Request, env: Env): Promise<Response> {
       contents: [{ parts: [{ text: body.prompt }] }],
     };
 
-    // Request JSON output when the client needs structured data
     if (body.responseFormat === 'json') {
       geminiPayload.generationConfig = {
         responseMimeType: 'application/json',
@@ -89,17 +88,13 @@ async function handleAIRequest(request: Request, env: Env): Promise<Response> {
       body: JSON.stringify(geminiPayload),
     });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini API error:', geminiRes.status, errText);
-      return jsonError(`AI service error: ${geminiRes.status}`, 502);
-    }
+    const geminiData = await geminiRes.json() as any;
 
-    const geminiData = await geminiRes.json() as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-      }>;
-    };
+    if (!geminiRes.ok) {
+      const errorMessage = geminiData.error?.message || `Gemini API error: ${geminiRes.status}`;
+      console.error('Gemini API error:', geminiRes.status, geminiData);
+      return jsonError(errorMessage, 502);
+    }
 
     const text =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';

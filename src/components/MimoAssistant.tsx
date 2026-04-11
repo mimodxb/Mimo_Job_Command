@@ -91,11 +91,12 @@ Mimo AI:`;
       setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
     } catch (err) {
       console.error('Assistant error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Something went wrong. Please try again.',
+          content: errorMessage,
         },
       ]);
     } finally {

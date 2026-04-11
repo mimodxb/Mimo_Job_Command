@@ -48,8 +48,60 @@ export default defineConfig({
 
   server: {
     hmr: process.env.DISABLE_HMR !== 'true',
-    // Proxy /api/* to the local Wrangler dev server during development
-    // Run: npx wrangler dev --port 8787 in a separate terminal
+    // Local API handler for AI Studio preview
+    // This allows /api/ai to work without a separate Wrangler process
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url === '/api/ai' && req.method === 'POST') {
+          try {
+            let body = '';
+            for await (const chunk of req) body += chunk;
+            const { prompt, model, responseFormat } = JSON.parse(body);
+
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+              res.statusCode = 503;
+              res.end(JSON.stringify({ error: 'GEMINI_API_KEY not found in environment' }));
+              return;
+            }
+
+            const geminiModel = model || 'gemini-1.5-flash';
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+            
+            const payload: any = {
+              contents: [{ parts: [{ text: prompt }] }]
+            };
+            if (responseFormat === 'json') {
+              payload.generationConfig = { responseMimeType: 'application/json' };
+            }
+
+            const geminiRes = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const data: any = await geminiRes.json();
+            
+            if (!geminiRes.ok) {
+              res.statusCode = geminiRes.status;
+              res.end(JSON.stringify({ error: data.error?.message || 'Gemini API error' }));
+              return;
+            }
+
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ text }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'Internal server error' }));
+          }
+          return;
+        }
+        next();
+      });
+    },
+    // Keep proxy for other environments if needed
     proxy: {
       '/api': {
         target: 'http://localhost:8787',

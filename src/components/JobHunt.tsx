@@ -55,7 +55,8 @@ export default function JobHunt() {
       setAiCoverLetter(text || "Error: No response from Gemini.");
     } catch (error) {
       console.error(error);
-      setAiCoverLetter("Error generating cover letter. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Error generating cover letter. Please try again.";
+      setAiCoverLetter(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -89,7 +90,8 @@ export default function JobHunt() {
       setOptimizationResult(result);
     } catch (error) {
       console.error(error);
-      alert("Error optimizing ATS.");
+      const errorMessage = error instanceof Error ? error.message : "Error optimizing ATS.";
+      alert(errorMessage);
     } finally {
       setIsOptimizing(false);
     }

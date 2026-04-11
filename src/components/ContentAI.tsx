@@ -52,7 +52,8 @@ Output only the post text, nothing else.`;
       setGeneratedPost(text || "Error: No response from Gemini.");
     } catch (error) {
       console.error(error);
-      setGeneratedPost("Error generating post. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Error generating post. Please try again.";
+      setGeneratedPost(errorMessage);
     } finally {
       setIsGenerating(false);
     }

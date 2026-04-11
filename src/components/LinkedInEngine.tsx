@@ -65,7 +65,8 @@ export default function LinkedInEngine() {
       setAuditResult(result);
     } catch (error) {
       console.error(error);
-      alert("Error auditing profile.");
+      const errorMessage = error instanceof Error ? error.message : "Error auditing profile.";
+      alert(errorMessage);
     } finally {
       setIsAuditing(false);
     }
