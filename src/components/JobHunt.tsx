@@ -50,7 +50,7 @@ export default function JobHunt() {
       - Call to Action: Mention availability for interview and his Calendly link: ${PROFILE.calendly}.
       - Output: Only the cover letter text. No subject line.`;
 
-      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
+      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
       
       setAiCoverLetter(text || "Error: No response from Gemini.");
     } catch (error) {
@@ -86,7 +86,7 @@ export default function JobHunt() {
       - Focus on technical skills, tools, and industry-specific terminology.
       - Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ score: number; missingKeywords: string[]; suggestions: string[] }>(prompt, { model: 'gemini-2.0-flash' });
+      const result = await generateJSON<{ score: number; missingKeywords: string[]; suggestions: string[] }>(prompt, { model: 'gemini-1.5-flash' });
       setOptimizationResult(result);
     } catch (error) {
       console.error(error);

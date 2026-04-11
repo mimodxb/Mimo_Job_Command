@@ -61,7 +61,7 @@ export default function LinkedInEngine() {
       - Ensure the "AI Automation" angle is highlighted.
       - Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { model: 'gemini-2.0-flash' });
+      const result = await generateJSON<{ score: number; fixes: string[]; summary: string }>(prompt, { model: 'gemini-1.5-flash' });
       setAuditResult(result);
     } catch (error) {
       console.error(error);

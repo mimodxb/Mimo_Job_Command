@@ -32,7 +32,7 @@ export async function generateText(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
-      model: options.model ?? 'gemini-2.0-flash',
+      model: options.model ?? 'gemini-1.5-flash',
       responseFormat: 'text',
     }),
   });
@@ -60,7 +60,7 @@ export async function generateJSON<T = unknown>(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
-      model: options.model ?? 'gemini-2.0-flash',
+      model: options.model ?? 'gemini-1.5-flash',
       responseFormat: 'json',
     }),
   });

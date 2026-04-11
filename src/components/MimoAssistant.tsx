@@ -87,7 +87,7 @@ ${conversationHistory}
 Mimo: ${userMessage}
 Mimo AI:`;
 
-      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
+      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
       setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
     } catch (err) {
       console.error('Assistant error:', err);

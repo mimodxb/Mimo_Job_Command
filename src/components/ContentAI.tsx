@@ -47,7 +47,7 @@ Rules:
 
 Output only the post text, nothing else.`;
 
-      const text = await generateText(prompt, { model: 'gemini-2.0-flash' });
+      const text = await generateText(prompt, { model: 'gemini-1.5-flash' });
       
       setGeneratedPost(text || "Error: No response from Gemini.");
     } catch (error) {
@@ -82,7 +82,7 @@ Output only the post text, nothing else.`;
 
       Output ONLY valid JSON.`;
 
-      const result = await generateJSON<{ hooks: string[] }>(prompt, { model: 'gemini-2.0-flash' });
+      const result = await generateJSON<{ hooks: string[] }>(prompt, { model: 'gemini-1.5-flash' });
       setGeneratedHooks(result.hooks || []);
     } catch (error) {
       console.error(error);
