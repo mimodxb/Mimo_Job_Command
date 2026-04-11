@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { GIGS } from '../constants';
 import { Gig } from '../types';
-import { Copy, ExternalLink, CheckCircle2, AlertTriangle, Globe, Rocket, Share2 } from 'lucide-react';
+import { Copy, ExternalLink, CheckCircle2, AlertTriangle, Globe, Rocket, Share2, Search } from 'lucide-react';
 
 export default function GigCenter() {
   const [activeTab, setActiveTab] = useState<'gigs' | 'promo' | 'platforms' | 'launch'>('gigs');
   const [selectedGig, setSelectedGig] = useState<Gig>(GIGS[0]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredGigs = useMemo(() => {
+    return GIGS.filter(gig => 
+      gig.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      gig.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      gig.platform.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm]);
 
   const copyGig = () => {
     navigator.clipboard.writeText(`TITLE:\n${selectedGig.title}\n\nDESCRIPTION:\n${selectedGig.description}\n\nTAGS:\n${selectedGig.tags}`);
@@ -37,6 +46,19 @@ export default function GigCenter() {
             </button>
           ))}
         </div>
+
+        {activeTab === 'gigs' && (
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-4" size={16} />
+            <input
+              type="text"
+              placeholder="Search gigs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border border-border rounded-xl pl-10 pr-4 py-2 text-sm font-medium outline-none focus:border-accent transition-all"
+            />
+          </div>
+        )}
       </div>
 
       {activeTab === 'gigs' && (
@@ -44,23 +66,29 @@ export default function GigCenter() {
           <div className="space-y-3">
             <div className="text-[10.5px] font-bold tracking-wider text-text-3 uppercase ml-1">Select Gig</div>
             <div className="space-y-2">
-              {GIGS.map(gig => (
-                <button
-                  key={gig.id}
-                  onClick={() => setSelectedGig(gig)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all shadow-sm ${
-                    selectedGig.id === gig.id 
-                      ? 'bg-accent/5 border-accent ring-1 ring-accent/20' 
-                      : 'bg-white border-border hover:border-border-2 hover:shadow-md'
-                  }`}
-                >
-                  <div className={`font-bold text-[13px] ${selectedGig.id === gig.id ? 'text-accent' : 'text-text'}`}>{gig.title}</div>
-                  <div className="flex gap-2 mt-2">
-                    <span className="badge badge-blue text-[9px]">{gig.platform}</span>
-                    <span className="text-[10.5px] text-text-3 font-medium">· {gig.category}</span>
-                  </div>
-                </button>
-              ))}
+              {filteredGigs.length > 0 ? (
+                filteredGigs.map(gig => (
+                  <button
+                    key={gig.id}
+                    onClick={() => setSelectedGig(gig)}
+                    className={`w-full text-left p-4 rounded-xl border transition-all shadow-sm ${
+                      selectedGig.id === gig.id 
+                        ? 'bg-accent/5 border-accent ring-1 ring-accent/20' 
+                        : 'bg-white border-border hover:border-border-2 hover:shadow-md'
+                    }`}
+                  >
+                    <div className={`font-bold text-[13px] ${selectedGig.id === gig.id ? 'text-accent' : 'text-text'}`}>{gig.title}</div>
+                    <div className="flex gap-2 mt-2">
+                      <span className="badge badge-blue text-[9px]">{gig.platform}</span>
+                      <span className="text-[10.5px] text-text-3 font-medium">· {gig.category}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="p-8 text-center border-dashed border-2 border-border rounded-xl opacity-50">
+                  <p className="text-[12px] text-text-3 font-medium">No gigs found matching "{searchTerm}"</p>
+                </div>
+              )}
             </div>
           </div>
 
