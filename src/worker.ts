@@ -115,9 +115,10 @@ export default {
 
     // Automation Logs Endpoint
     if (url.pathname === '/api/automation/logs') {
-      if (!env.DB) return jsonError('D1 Database not bound', 500);
+      const db = env.DB || env['my-binding'];
+      if (!db) return jsonError('D1 Database not bound', 500);
       try {
-        const { results } = await env.DB.prepare(
+        const { results } = await db.prepare(
           'SELECT * FROM automation_logs ORDER BY created_at DESC LIMIT 50'
         ).all();
         return jsonResponse(results, 200);
@@ -132,6 +133,7 @@ export default {
       const detectedGemini = getSecret(env, GEMINI_KEY_NAMES);
       const detectedClaude = getSecret(env, CLAUDE_KEY_NAMES);
       const detectedOpenAI = getSecret(env, OPENAI_KEY_NAMES);
+      const db = env.DB || env['my-binding'];
 
       return jsonResponse(
         {
@@ -141,7 +143,7 @@ export default {
             gemini: !!detectedGemini,
             claude: !!detectedClaude,
             openai: !!detectedOpenAI,
-            db: !!env.DB
+            db: !!db
           },
           env_keys_found: allKeys,
           naming_hints: {
@@ -182,7 +184,9 @@ async function runAutonomousJobHunter(env: Env) {
     // Add more feeds here as needed
   ];
 
-  if (!env.DB) {
+  const db = env.DB || env['my-binding'];
+
+  if (!db) {
     console.error('D1 Database not bound. Skipping automation.');
     return;
   }
@@ -204,7 +208,7 @@ async function runAutonomousJobHunter(env: Env) {
         const id = (entry.match(/<id>([\s\S]*?)<\/id>/) || [])[1] || link;
 
         // 3. Deduplication (D1)
-        const existing = await env.DB.prepare('SELECT id FROM automation_logs WHERE job_id = ?').bind(id).first();
+        const existing = await db.prepare('SELECT id FROM automation_logs WHERE job_id = ?').bind(id).first();
         if (existing) continue;
 
         console.log(`Processing: ${title}`);
@@ -241,7 +245,7 @@ async function runAutonomousJobHunter(env: Env) {
         }
 
         // 6. Log to D1
-        await env.DB.prepare(
+        await db.prepare(
           'INSERT INTO automation_logs (job_id, title, url, score, bucket, reason, apply_status) VALUES (?, ?, ?, ?, ?, ?, ?)'
         ).bind(id, title, link, analysis.score, analysis.bucket, analysis.reason, applyStatus).run();
 
