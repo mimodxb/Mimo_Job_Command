@@ -62,10 +62,11 @@ async function handleAIRequest(request: Request, env: Env): Promise<Response> {
     }
 
     const model = body.model || 'gemini-1.5-flash';
-    const apiKey = env.GEMINI_API_KEY;
+    // Handle both uppercase and lowercase to prevent configuration errors
+    const apiKey = env.GEMINI_API_KEY || (env as any).gemini_api_key;
 
     if (!apiKey) {
-      return jsonError('Server configuration error: GEMINI_API_KEY is missing on Cloudflare', 503);
+      return jsonError('Server configuration error: GEMINI_API_KEY is missing on Cloudflare. Please ensure the secret name is all uppercase in your dashboard.', 503);
     }
 
     // Call Google Gemini REST API directly
