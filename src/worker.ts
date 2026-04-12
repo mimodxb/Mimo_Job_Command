@@ -1,11 +1,10 @@
-/// <reference types="@cloudflare/workers-types" />
-
 /**
  * Mimo Job Command Center — Cloudflare Worker Entry Point
  */
 
 export interface Env {
-  ASSETS: Fetcher;
+  ASSETS: any;
+  DB?: any;
   [key: string]: any;
 }
 
@@ -112,7 +111,7 @@ export default {
     if (url.pathname === '/api/ai' && request.method === 'POST') {
       return handleAIRequest(request, env);
     }
-
+S
     // OAuth Routes
     if (url.pathname === '/api/auth/google/url') {
       return handleGoogleAuthUrl(request, env);
@@ -143,8 +142,8 @@ export default {
       try {
         const { results } = await db.prepare('SELECT key FROM settings').all();
         const connections = {
-          google: results.some(r => r.key === 'google_tokens'),
-          linkedin: results.some(r => r.key === 'linkedin_tokens'),
+          google: results.some((r: any) => r.key === 'google_tokens'),
+          linkedin: results.some((r: any) => r.key === 'linkedin_tokens'),
         };
         return jsonResponse({ connections }, 200);
       } catch (e) {
