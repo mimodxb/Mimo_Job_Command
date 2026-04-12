@@ -21,7 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "mimojobcommand",
+  "name": "mimojobcommandv2",
 
   // ── MANDATORY: Worker entry point ──────────────────────────────────────────
   // This is the file that runs on Cloudflare's edge. Its presence transforms
